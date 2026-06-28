@@ -1135,10 +1135,12 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
             or os.getenv(LOCAL_STT_LANGUAGE_ENV)
             or None
         )
-        transcribe_kwargs = {"beam_size": 5}
+        transcribe_kwargs = {"beam_size": 1}
         if _forced_lang:
             transcribe_kwargs["language"] = _forced_lang
 
+        import time as _time
+        _t0 = _time.monotonic()
         try:
             segments, info = _local_model.transcribe(file_path, **transcribe_kwargs)
             transcript = " ".join(segment.text.strip() for segment in segments)
@@ -1163,9 +1165,11 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
             segments, info = _local_model.transcribe(file_path, **transcribe_kwargs)
             transcript = " ".join(segment.text.strip() for segment in segments)
 
+        _elapsed = _time.monotonic() - _t0
         logger.info(
-            "Transcribed %s via local whisper (%s, lang=%s, %.1fs audio)",
+            "Transcribed %s via local whisper (%s, lang=%s, %.1fs audio, %.2fs compute, %.1fx realtime)",
             Path(file_path).name, model_name, info.language, info.duration,
+            _elapsed, info.duration / _elapsed if _elapsed > 0 else 0,
         )
 
         return {"success": True, "transcript": transcript, "provider": "local"}

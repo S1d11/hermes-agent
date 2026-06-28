@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useI18n } from '@/i18n'
-import { playSpeechText, stopVoicePlayback } from '@/lib/voice-playback'
+import { clearPrefetchCache, playSpeechText, prefetchSpeechAudio, stopVoicePlayback } from '@/lib/voice-playback'
 import { notify, notifyError } from '@/store/notifications'
 
 import { useMicRecorder } from './use-mic-recorder'
@@ -193,21 +193,21 @@ export function useVoiceConversation({
 
     const sentence = buffer.match(/^(.+?[.!?。！？])(?:\s+|$)/)
 
-    if (sentence?.[1] && (sentence[1].length >= 8 || force)) {
+    if (sentence?.[1] && (sentence[1].length >= 4 || force)) {
       const chunk = sentence[1].trim()
       speechBufferRef.current = buffer.slice(sentence[1].length).trim()
 
       return chunk
     }
 
-    if (!force && buffer.length > 220) {
+    if (!force && buffer.length > 160) {
       const softBoundary = Math.max(
-        buffer.lastIndexOf(', ', 180),
-        buffer.lastIndexOf('; ', 180),
-        buffer.lastIndexOf(': ', 180)
+        buffer.lastIndexOf(', ', 120),
+        buffer.lastIndexOf('; ', 120),
+        buffer.lastIndexOf(': ', 120)
       )
 
-      if (softBoundary > 80) {
+      if (softBoundary > 40) {
         const chunk = buffer.slice(0, softBoundary + 1).trim()
         speechBufferRef.current = buffer.slice(softBoundary + 1).trim()
 
@@ -234,6 +234,8 @@ export function useVoiceConversation({
       clearTurnTimeout()
       setStatus('transcribing')
 
+      const turnStart = performance.now()
+
       try {
         const result = await handle.stop()
 
@@ -248,7 +250,13 @@ export function useVoiceConversation({
         }
 
         try {
+          const transcribeStart = performance.now()
           const transcript = (await onTranscribeAudio(result.audio)).trim()
+          const transcribeMs = Math.round(performance.now() - transcribeStart)
+
+          if (transcript) {
+            console.debug(`[voice] STT: ${transcribeMs}ms (${transcript.length} chars)`)
+          }
 
           if (!transcript) {
             if (enabledRef.current) {
@@ -264,6 +272,7 @@ export function useVoiceConversation({
           resetSpeechBuffer()
           await onSubmit(transcript)
           setStatus('thinking')
+          console.debug(`[voice] turn total: ${Math.round(performance.now() - turnStart)}ms`)
         } catch (error) {
           notifyError(error, voiceCopy.transcriptionFailed)
 
@@ -320,8 +329,11 @@ export function useVoiceConversation({
       // Start barge-in monitor so user can interrupt TTS by speaking
       void startBargeInMonitor()
 
+      const ttsStart = performance.now()
+
       try {
         await playSpeechText(text, { source: 'voice-conversation' })
+        console.debug(`[voice] TTS: ${Math.round(performance.now() - ttsStart)}ms (${text.length} chars)`)
       } catch (error) {
         notifyError(error, voiceCopy.playbackFailed)
       } finally {
@@ -370,6 +382,7 @@ export function useVoiceConversation({
     clearTurnTimeout()
     stopBargeInMonitor()
     stopVoicePlayback()
+    clearPrefetchCache()
     handle.cancel()
     turnClosingRef.current = false
     awaitingSpokenResponseRef.current = false
@@ -463,6 +476,17 @@ export function useVoiceConversation({
 
         if (chunk) {
           void speak(chunk)
+
+          // Pre-fetch TTS for the next chunk while current one plays (pipelining).
+          // Save/restore the buffer so the peek doesn't consume the chunk.
+          const savedBuffer = speechBufferRef.current
+          const nextChunk = takeSpeechChunk(false)
+
+          if (nextChunk) {
+            void prefetchSpeechAudio(nextChunk).catch(() => {})
+          }
+
+          speechBufferRef.current = savedBuffer
 
           return
         }

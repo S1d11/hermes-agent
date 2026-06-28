@@ -111,7 +111,7 @@ export function ConnectionsView({ setStatusbarItemGroup: _setStatusbarItemGroup,
       void refresh(true)
     }
 
-    const id = window.setInterval(tick, 8000)
+    const id = window.setInterval(tick, 30_000)
 
     return () => {
       cancelled = true

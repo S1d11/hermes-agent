@@ -1,0 +1,19 @@
+feat: v0.19.0 — voice mode optimizations and performance tuning
+
+Voice mode improvements:
+- STT beam_size reduced 5→1 for 2-3x faster transcription
+- Mic sample rate set to 16kHz for smaller audio payloads
+- TTS chunk minimum reduced 8→4 chars for earlier speech playback
+- TTS pipelining: pre-fetch next sentence audio while current plays
+- TTS audio caching by text hash to avoid regenerating repeated phrases
+- STT/TTS timing logs for performance debugging
+- Barge-in: interrupt AI speech by speaking or pressing Space
+
+App performance:
+- Connections polling reduced 8s→30s to cut unnecessary network traffic
+
+Version bump to 0.19.0.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

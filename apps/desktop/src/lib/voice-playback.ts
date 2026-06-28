@@ -73,13 +73,22 @@ export async function playSpeechText(text: string, options: VoicePlaybackOptions
   setVoicePlaybackState(currentState('preparing', options))
 
   try {
-    const response = await speakText(speakableText)
+    // Check for pre-fetched audio first (TTS pipelining)
+    const prefetchedPromise = consumePrefetchedAudio(text)
+    let dataUrl: string
+
+    if (prefetchedPromise) {
+      dataUrl = await prefetchedPromise
+    } else {
+      const response = await speakText(speakableText)
+      dataUrl = response.data_url
+    }
 
     if (!isCurrent()) {
       return false
     }
 
-    const audio = new Audio(response.data_url)
+    const audio = new Audio(dataUrl)
     currentAudio = audio
     setVoicePlaybackState(currentState('speaking', options, audio))
 
@@ -152,4 +161,65 @@ export async function playSpeechText(text: string, options: VoicePlaybackOptions
 
 export function isVoicePlaybackActive() {
   return $voicePlayback.get().status !== 'idle'
+}
+
+// ─── TTS Pre-fetch for pipelining ──────────────────────────────────────────
+// Pre-generate TTS audio without playing it, so the next sentence is ready
+// before the current one finishes. Eliminates the gap between sentences.
+
+const prefetchCache = new Map<string, Promise<string>>()
+const PREFETCH_CACHE_MAX = 5
+
+export async function prefetchSpeechAudio(text: string): Promise<string> {
+  const speakableText = sanitizeTextForSpeech(text)
+
+  if (!speakableText) {
+    return ''
+  }
+
+  const key = speakableText
+
+  // Return existing promise if already pre-fetching
+  const existing = prefetchCache.get(key)
+
+  if (existing) {
+    return existing
+  }
+
+  // Evict oldest entries if cache is full
+  if (prefetchCache.size >= PREFETCH_CACHE_MAX) {
+    const firstKey = prefetchCache.keys().next().value
+
+    if (firstKey) {
+      prefetchCache.delete(firstKey)
+    }
+  }
+
+  const promise = speakText(speakableText).then(response => response.data_url)
+
+  prefetchCache.set(key, promise)
+
+  return promise
+}
+
+export function consumePrefetchedAudio(text: string): Promise<string> | null {
+  const speakableText = sanitizeTextForSpeech(text)
+
+  if (!speakableText) {
+    return null
+  }
+
+  const promise = prefetchCache.get(speakableText)
+
+  if (promise) {
+    prefetchCache.delete(speakableText)
+
+    return promise
+  }
+
+  return null
+}
+
+export function clearPrefetchCache() {
+  prefetchCache.clear()
 }

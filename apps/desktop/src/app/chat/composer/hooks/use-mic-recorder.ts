@@ -185,7 +185,7 @@ export function useMicRecorder(copy: MicRecorderErrorCopy): {
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000, channelCount: 1 }
       })
     } catch (error) {
       throw micError(error, copy)
