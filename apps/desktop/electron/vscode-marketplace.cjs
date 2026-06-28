@@ -133,7 +133,7 @@ async function queryGallery(payload, { maxBytes = 4 * 1024 * 1024 } = {}) {
       Accept: 'application/json;api-version=3.0-preview.1',
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
-      'User-Agent': 'Hermes-Desktop'
+      'User-Agent': 'Zeus-Desktop'
     },
     body,
     maxBytes

@@ -927,6 +927,7 @@ from tools.environments.ssh import SSHEnvironment as _SSHEnvironment
 from tools.environments.docker import DockerEnvironment as _DockerEnvironment
 from tools.environments.modal import ModalEnvironment as _ModalEnvironment
 from tools.environments.managed_modal import ManagedModalEnvironment as _ManagedModalEnvironment
+from tools.environments.powershell import PowerShellEnvironment as _PowerShellEnvironment
 from tools.managed_tool_gateway import is_managed_tool_gateway_ready
 import sys
 
@@ -1253,6 +1254,8 @@ def _get_env_config() -> Dict[str, Any]:
     # root-like cwd.
     if env_type == "local":
         default_cwd = _safe_getcwd()
+    elif env_type == "powershell":
+        default_cwd = _safe_getcwd()
     elif env_type == "ssh":
         default_cwd = "~"
     else:
@@ -1381,6 +1384,9 @@ def _create_environment(env_type: str, image: str, cwd: str, timeout: int,
 
     if env_type == "local":
         return _LocalEnvironment(cwd=cwd, timeout=timeout)
+
+    elif env_type == "powershell":
+        return _PowerShellEnvironment(cwd=cwd, timeout=timeout)
     
     elif env_type == "docker":
         # One-shot orphan reaper: clean up labeled containers left behind by
@@ -1492,7 +1498,7 @@ def _create_environment(env_type: str, image: str, cwd: str, timeout: int,
 
     else:
         raise ValueError(
-            f"Unknown environment type: {env_type}. Use 'local', 'docker', "
+            f"Unknown environment type: {env_type}. Use 'local', 'powershell', 'docker', "
             f"'singularity', 'modal', 'daytona', or 'ssh'"
         )
 
@@ -2721,6 +2727,15 @@ def check_terminal_requirements() -> bool:
         if env_type == "local":
             return True
 
+        elif env_type == "powershell":
+            try:
+                from tools.environments.powershell import _find_powershell
+                _find_powershell()
+                return True
+            except RuntimeError as e:
+                logger.error("%s", e)
+                return False
+
         elif env_type == "docker":
             from tools.environments.docker import find_docker
             docker = find_docker()
@@ -2812,7 +2827,7 @@ def check_terminal_requirements() -> bool:
 
         else:
             logger.error(
-                "Unknown TERMINAL_ENV '%s'. Use one of: local, docker, singularity, "
+                "Unknown TERMINAL_ENV '%s'. Use one of: local, powershell, docker, singularity, "
                 "modal, daytona, ssh.",
                 env_type,
             )

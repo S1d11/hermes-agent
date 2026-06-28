@@ -1,0 +1,34 @@
+# Windows Admin MCP catalog entry.
+# Presence in this directory = approval. Merged via PR review.
+manifest_version: 1
+
+name: windows-admin
+description: Structured Windows system management — registry, services, processes, scheduled tasks, env vars, disk/network info.
+
+# Local stdio server — runs a Python script that uses PowerShell under the hood
+# for typed, validated operations. Safer than raw shell access because each tool
+# validates inputs and returns structured JSON.
+transport:
+  type: stdio
+  command: python
+  args:
+    - optional-mcps/windows-admin/server.py
+
+# Requires the mcp package (pip install mcp) and Windows powershell.exe.
+# No API key or auth needed — operates with the permissions of the
+# launching process (run Hermes as admin for HKLM/service modifications).
+
+post_install: |
+  The windows-admin MCP server provides structured tools for:
+    - Registry: read, list, write, delete
+    - Services: list, get, start, stop, restart, set startup type
+    - Processes: list, kill
+    - Scheduled tasks: list, delete
+    - Environment variables: get, set (machine or user scope)
+    - System info: disk, network adapters
+
+  For HKLM (system-wide) registry and service modifications, run Hermes
+  from an elevated (Administrator) shell.
+
+  Configure which tools are enabled:
+    hermes mcp configure windows-admin

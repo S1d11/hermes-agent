@@ -282,6 +282,23 @@ HARDLINE_PATTERNS = [
     (_CMDPOS + r'init\s+[06]\b', "init 0/6 (shutdown/reboot)"),
     (_CMDPOS + r'systemctl\s+(poweroff|reboot|halt|kexec)\b', "systemctl poweroff/reboot"),
     (_CMDPOS + r'telinit\s+[06]\b', "telinit 0/6 (shutdown/reboot)"),
+    # Windows: disk wipe via diskpart clean (parallel to mkfs/dd hardline).
+    # diskpart reads subcommands from stdin or a script, so "clean" can appear
+    # either after "diskpart" (inline) or before it (piped: "echo clean | diskpart").
+    (r'\bdiskpart\b[^\n]*\bclean\b', "disk wipe via diskpart clean"),
+    (r'\bclean\b[^\n]*\|\s*diskpart\b', "disk wipe via piped diskpart clean"),
+    # Windows: format drive (parallel to mkfs). Anchored to command position
+    # (like shutdown/reboot) so "format c:" inside echo/python strings doesn't trip.
+    (_CMDPOS + r'format\b\s+[a-z]:', "format Windows drive"),
+    # Windows: PowerShell shutdown/restart cmdlets (parallel to shutdown/reboot).
+    # These appear inside `powershell -Command "Stop-Computer"` so _CMDPOS won't help;
+    # bare word-boundary match is safe — "stop-computer" is not a common substring.
+    (r'\b(stop-computer|restart-computer)\b', "Windows shutdown/restart (PowerShell)"),
+    # Windows: registry root hive deletion (parallel to rm -rf /etc).
+    # After backslash stripping, "HKLM\SOFTWARE" → "HKLMSOFTWARE", so no separator.
+    # Only matches root hive names with no subkey — "HKLM\SOFTWARE\MyApp" survives
+    # because "SOFTWAREMyApp" doesn't match the alternation followed by (?:\s|/|$).
+    (r'\breg(?:\.exe)?\b\s+delete\s+(?:HKLM|HKEY_LOCAL_MACHINE)(?:SOFTWARE|SYSTEM|SAM|SECURITY|HARDWARE)(?:\s|/|$)', "registry root hive deletion (OS breakage)"),
 ]
 
 # Pre-compiled variant used by the hot-path matcher. Building these at module
@@ -527,6 +544,44 @@ DANGEROUS_PATTERNS = [
     # into a single -X token. Catches the same threat class.
     (r'\bsudo\b[^;|&\n]*?\s+-[a-z]*[sa][a-z]*\b',
      "sudo with combined-flag privilege escalation"),
+    # ──────────────────────────────────────────────────────────────────────
+    # Windows-specific dangerous commands (approval-gated, yolo-bypassable).
+    # After _normalize_command_for_detection, backslashes are stripped, so
+    # "HKLM\SOFTWARE" → "HKLMSOFTWARE" and "C:\Windows" → "C:Windows".
+    # Patterns below account for this normalized form.
+    # ──────────────────────────────────────────────────────────────────────
+    # Windows: registry modifications via reg.exe (add/delete/import/copy/restore/load/unload).
+    # Root hive deletion is hardline above; subkey operations are dangerous.
+    (r'\breg(?:\.exe)?\b\s+(?:add|delete|import|copy|restore|load|unload)\b', "Windows registry modification (reg.exe)"),
+    # Windows: silent registry import via regedit /s (no confirmation prompt).
+    (r'\bregedit(?:\.exe)?\b\s+/s\b', "silent registry import (regedit /s)"),
+    # Windows: service management via sc.exe (create/delete/config/stop/start/pause/continue).
+    (r'\bsc(?:\.exe)?\b\s+(?:create|delete|config|stop|start|pause|continue)\b', "Windows service modification (sc.exe)"),
+    # Windows: scheduled task management via schtasks (/create, /delete, /change, /end).
+    (r'\bschtasks(?:\.exe)?\b[^\n]*\s/(?:create|delete|change|end)\b', "Windows scheduled task modification (schtasks)"),
+    # Windows: user/group management via net user/localgroup with /delete or /add.
+    (r'\bnet\b\s+(?:user|localgroup)\b[^\n]*/(?:delete|add)\b', "Windows user/group management (net user/localgroup)"),
+    # Windows: boot configuration modification via bcdedit /set.
+    (r'\bbcdedit(?:\.exe)?\b[^\n]*/set\b', "Windows boot configuration modification (bcdedit /set)"),
+    # Windows: diskpart destructive operations (non-clean verbs; clean is hardline).
+    # Matches both inline ("diskpart ... delete partition") and piped forms
+    # ("echo delete partition | diskpart") since diskpart reads from stdin.
+    (r'\bdiskpart\b[^\n]*\b(?:delete\s+(?:partition|volume|disk)|remove|format)\b', "diskpart destructive operation"),
+    (r'\b(?:delete\s+(?:partition|volume|disk)|remove)\b[^\n]*\|\s*diskpart\b', "diskpart destructive operation (piped)"),
+    # Windows: ownership/ACL changes on system files (takeown/icacls on C:\Windows).
+    # After backslash stripping, "C:\Windows" → "C:Windows".
+    (r'\btakeown\b[^\n]*[a-z]:windows', "take ownership of Windows system files"),
+    (r'\bicacls\b[^\n]*[a-z]:windows[^\n]*\bgrant\b', "modify ACLs on Windows system files"),
+    # Windows: PowerShell registry operations on HKLM (parallel to reg.exe above).
+    # After normalization, "HKLM:\SOFTWARE" → "hklm:software" (backslash stripped, lowercased).
+    (r'\bset-itemproperty\b[^\n]*\bhklm:', "PowerShell: modify HKLM registry value"),
+    (r'\bremove-item\b[^\n]*\bhklm:', "PowerShell: remove HKLM registry key"),
+    (r'\bnew-itemproperty\b[^\n]*\bhklm:', "PowerShell: create HKLM registry value"),
+    # Windows: PowerShell service lifecycle operations (parallel to sc.exe / systemctl above).
+    (r'\bset-service\b', "PowerShell: modify Windows service"),
+    (r'\bnew-service\b', "PowerShell: create Windows service"),
+    (r'\bstop-service\b', "PowerShell: stop Windows service"),
+    (r'\bremove-service\b', "PowerShell: remove Windows service"),
 ]
 
 

@@ -1,0 +1,5 @@
+name: llama-cpp-provider
+kind: model-provider
+version: 1.0.0
+description: In-process GGUF inference via llama-cpp-python server
+author: Hermes Agent

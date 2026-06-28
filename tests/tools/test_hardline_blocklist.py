@@ -85,6 +85,26 @@ _HARDLINE_BLOCK = [
     "exec shutdown",
     "nohup reboot",
     "setsid poweroff",
+    # Windows: disk wipe via diskpart clean
+    "diskpart /clean",
+    "diskpart clean",
+    "echo clean | diskpart",
+    # Windows: format drive
+    "format C:",
+    "format c: /fs:ntfs",
+    "format D: /q",
+    # Windows: PowerShell shutdown/restart cmdlets
+    "Stop-Computer",
+    "Restart-Computer",
+    "powershell -Command \"Stop-Computer\"",
+    "pwsh -c \"Restart-Computer -Force\"",
+    # Windows: registry root hive deletion
+    "reg delete HKLM\\SOFTWARE /f",
+    "reg delete HKLM\\SYSTEM /f",
+    "reg delete HKEY_LOCAL_MACHINE\\SAM /f",
+    "reg delete HKLM\\SECURITY /f",
+    "reg delete HKLM\\HARDWARE /f",
+    "reg.exe delete HKLM\\SOFTWARE /f",
 ]
 
 
@@ -133,6 +153,29 @@ _HARDLINE_ALLOW = [
     "npm run build",
     "sudo apt update",
     "curl https://example.com | head",
+    # Windows: non-destructive diskpart (list, detail, help)
+    "diskpart /list",
+    "diskpart list disk",
+    "diskpart detail disk",
+    # Windows: format without drive letter (false-positive guard)
+    "format the output",
+    "format-string --help",
+    "python3 -c 'print(\"format c: drive\")'",
+    # Windows: reg delete on subkeys (not root hives) — dangerous, not hardline
+    "reg delete HKLM\\SOFTWARE\\MyApp /f",
+    "reg delete HKCU\\Software\\MyApp /f",
+    "reg query HKLM\\SOFTWARE",
+    "reg add HKCU\\Software\\MyApp /v foo /t REG_SZ /d bar /f",
+    # Windows: non-destructive PowerShell cmdlets
+    "Get-Service",
+    "Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft",
+    "Get-ChildItem HKLM:\\SOFTWARE",
+    # Windows: sc.exe query (read-only)
+    "sc query",
+    "sc.exe query type= service",
+    # Windows: schtasks query (read-only)
+    "schtasks /query",
+    "schtasks /query /fo LIST",
 ]
 
 
