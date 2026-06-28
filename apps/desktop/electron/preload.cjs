@@ -214,5 +214,11 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   themes: {
     fetchMarketplace: id => ipcRenderer.invoke('hermes:vscode-theme:fetch', id),
     searchMarketplace: query => ipcRenderer.invoke('hermes:vscode-theme:search', query)
+  },
+  // Zeus: wake word + tray controls
+  zeus: {
+    toggleWakeWord: () => ipcRenderer.invoke('zeus:wake-word:toggle'),
+    getWakeWordStatus: () => ipcRenderer.invoke('zeus:wake-word:status'),
+    showFromTray: () => ipcRenderer.invoke('zeus:tray:show')
   }
 })
