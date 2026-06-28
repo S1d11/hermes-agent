@@ -368,6 +368,21 @@ export const zh: Translations = {
       voice: '语音',
       advanced: '高级'
     },
+    sectionGroups: {
+      tts: '文字转语音',
+      stt: '语音转文字',
+      voiceMode: '语音模式'
+    },
+    providerGroups: {
+      'on-device': '本地设备',
+      cloud: '云端',
+      onDeviceShort: '本地',
+      cloudShort: '云端'
+    },
+    providerBadges: {
+      'on-device': '本地设备',
+      cloud: '云端'
+    },
     searchPlaceholder: {
       about: '关于 Zeus Desktop',
       config: '搜索设置…',

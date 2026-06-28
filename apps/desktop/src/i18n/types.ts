@@ -311,6 +311,17 @@ export interface Translations {
       completionSoundPreview: string
     }
     sections: Record<string, string>
+    sectionGroups: Record<string, string>
+    providerGroups: {
+      'on-device': string
+      cloud: string
+      onDeviceShort: string
+      cloudShort: string
+    }
+    providerBadges: {
+      'on-device': string
+      cloud: string
+    }
     searchPlaceholder: Record<'about' | 'config' | 'gateway' | 'keys' | 'mcp' | 'sessions', string>
     modeOptions: Record<'light' | 'dark' | 'system', ModeOptionCopy>
     appearance: {

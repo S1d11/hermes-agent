@@ -284,6 +284,21 @@ export const ja = defineLocale({
       voice: '音声',
       advanced: '詳細'
     },
+    sectionGroups: {
+      tts: 'テキスト読み上げ',
+      stt: '音声認識',
+      voiceMode: '音声モード'
+    },
+    providerGroups: {
+      'on-device': 'オンデバイス',
+      cloud: 'クラウド',
+      onDeviceShort: 'ローカル',
+      cloudShort: 'クラウド'
+    },
+    providerBadges: {
+      'on-device': 'オンデバイス',
+      cloud: 'クラウド'
+    },
     searchPlaceholder: {
       about: 'Zeus Desktop について',
       config: '設定を検索…',

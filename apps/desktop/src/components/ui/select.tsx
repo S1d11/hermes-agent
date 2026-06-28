@@ -89,4 +89,18 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   )
 }
 
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
+function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
+  return <SelectPrimitive.Group data-slot="select-group" {...props} />
+}
+
+function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
+  return (
+    <SelectPrimitive.Label
+      className={cn('px-2 py-1.5 text-[0.65rem] font-semibold tracking-wide text-muted-foreground/70 uppercase select-none', className)}
+      data-slot="select-label"
+      {...props}
+    />
+  )
+}
+
+export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue }

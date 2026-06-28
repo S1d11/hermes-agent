@@ -374,6 +374,21 @@ export const en: Translations = {
       voice: 'Voice',
       advanced: 'Advanced'
     },
+    sectionGroups: {
+      tts: 'Text-to-Speech',
+      stt: 'Speech-to-Text',
+      voiceMode: 'Voice Mode'
+    },
+    providerGroups: {
+      'on-device': 'On-device',
+      cloud: 'Cloud',
+      onDeviceShort: 'Local',
+      cloudShort: 'Cloud'
+    },
+    providerBadges: {
+      'on-device': 'On-device',
+      cloud: 'Cloud'
+    },
     searchPlaceholder: {
       about: 'About Zeus Desktop',
       config: 'Search settings...',

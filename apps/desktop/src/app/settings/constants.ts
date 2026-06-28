@@ -262,6 +262,105 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'updates.non_interactive_local_changes': ['stash', 'discard']
 }
 
+// ─── Provider option metadata ──────────────────────────────────────────────
+// Classifies each provider option in enum dropdowns as "on-device" (runs
+// locally, no API key) or "cloud" (requires network + credentials). Used by
+// the grouped Select to render options under section labels with badges.
+// Also provides friendly display names (OPTION_LABELS) and short descriptions
+// shown beneath the option in the dropdown.
+
+export type ProviderCategory = 'on-device' | 'cloud'
+
+export interface ProviderOptionMeta {
+  category: ProviderCategory
+  /** Short description shown in the dropdown beneath the option name. */
+  description?: string
+}
+
+/**
+ * Per-field provider option metadata. The key is the config schema key
+ * (e.g. ``stt.provider``); the value maps each option string to its meta.
+ * Options not listed here default to ``{ category: 'cloud' }``.
+ */
+export const PROVIDER_OPTION_META: Record<string, Record<string, ProviderOptionMeta>> = {
+  'stt.provider': {
+    'local': { category: 'on-device', description: 'faster-whisper — runs locally, no API key' },
+    'groq': { category: 'cloud', description: 'Groq Whisper API — ultra-fast cloud transcription' },
+    'openai': { category: 'cloud', description: 'OpenAI Whisper API' },
+    'mistral': { category: 'cloud', description: 'Mistral Voxtral Transcribe' },
+    'xai': { category: 'cloud', description: 'xAI Grok STT' },
+    'elevenlabs': { category: 'cloud', description: 'ElevenLabs Scribe' }
+  },
+  'tts.provider': {
+    'piper': { category: 'on-device', description: 'Neural VITS — 44 languages, runs locally' },
+    'kittentts': { category: 'on-device', description: 'Lightweight 25 MB model, CPU-only' },
+    'neutts': { category: 'on-device', description: 'NeuTTS — local ONNX inference' },
+    'edge': { category: 'cloud', description: 'Microsoft Edge TTS — free, no API key' },
+    'elevenlabs': { category: 'cloud', description: 'ElevenLabs — premium neural voices' },
+    'openai': { category: 'cloud', description: 'OpenAI TTS' },
+    'xai': { category: 'cloud', description: 'xAI Grok TTS' },
+    'minimax': { category: 'cloud', description: 'MiniMax TTS' },
+    'mistral': { category: 'cloud', description: 'Mistral Voxtral TTS' },
+    'gemini': { category: 'cloud', description: 'Google Gemini TTS' }
+  },
+  'terminal.backend': {
+    'local': { category: 'on-device', description: 'Run commands on this machine' },
+    'docker': { category: 'cloud', description: 'Run inside a Docker container' },
+    'singularity': { category: 'cloud', description: 'Run inside a Singularity container' },
+    'modal': { category: 'cloud', description: 'Run on Modal cloud containers' },
+    'daytona': { category: 'cloud', description: 'Run on a Daytona workspace' },
+    'ssh': { category: 'cloud', description: 'Run on a remote SSH host' }
+  },
+  'memory.provider': {
+    'builtin': { category: 'on-device', description: 'Built-in local memory store' },
+    'hindsight': { category: 'cloud', description: 'Hindsight cloud memory' },
+    'honcho': { category: 'cloud', description: 'Honcho cloud memory' }
+  }
+}
+
+/**
+ * Friendly display names for provider options that are cryptic as-is.
+ * Options not listed fall back to ``prettyName()``.
+ */
+export const OPTION_LABELS: Record<string, Record<string, string>> = {
+  'stt.provider': {
+    'local': 'faster-whisper (Local)',
+    'groq': 'Groq Whisper',
+    'openai': 'OpenAI Whisper',
+    'mistral': 'Mistral Voxtral',
+    'xai': 'xAI Grok',
+    'elevenlabs': 'ElevenLabs Scribe'
+  },
+  'tts.provider': {
+    'edge': 'Microsoft Edge TTS',
+    'elevenlabs': 'ElevenLabs',
+    'openai': 'OpenAI TTS',
+    'xai': 'xAI Grok TTS',
+    'minimax': 'MiniMax TTS',
+    'mistral': 'Mistral Voxtral TTS',
+    'gemini': 'Google Gemini TTS',
+    'neutts': 'NeuTTS (Local)',
+    'kittentts': 'KittenTTS (Local)',
+    'piper': 'Piper (Local)'
+  },
+  'terminal.backend': {
+    'local': 'Local Machine',
+    'docker': 'Docker Container',
+    'singularity': 'Singularity Container',
+    'modal': 'Modal Cloud',
+    'daytona': 'Daytona Workspace',
+    'ssh': 'SSH Remote'
+  },
+  'memory.provider': {
+    'builtin': 'Built-in (Local)',
+    'hindsight': 'Hindsight (Cloud)',
+    'honcho': 'Honcho (Cloud)'
+  }
+}
+
+/** Config keys whose enum options should be rendered as grouped selects. */
+export const GROUPED_PROVIDER_KEYS = new Set(Object.keys(PROVIDER_OPTION_META))
+
 export const FIELD_LABELS: Record<string, string> = defineFieldCopy({
   model: 'Default Model',
   modelContextLength: 'Context Window',
@@ -430,6 +529,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   terminal: {
     cwd: 'Default project folder for tool and terminal work.',
+    backend: 'Where terminal commands execute. On-device runs on this machine; cloud backends need extra configuration.',
     persistentShell: 'Keep shell state between commands when the backend supports it.',
     envPassthrough: 'Environment variables to pass into tool execution.',
     dockerImage: 'Container image used when the execution backend is Docker.',
@@ -453,7 +553,8 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   memory: {
     memoryEnabled: 'Save durable memories that can help future sessions.',
-    userProfileEnabled: 'Maintain a compact profile of user preferences.'
+    userProfileEnabled: 'Maintain a compact profile of user preferences.',
+    provider: 'Where memories are stored. On-device keeps data local; cloud providers sync across devices.'
   },
   context: {
     engine: 'Strategy for managing long conversations near the context limit.'
@@ -465,6 +566,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
     autoTts: 'Automatically speak assistant responses.'
   },
   tts: {
+    provider: 'Choose how Zeus speaks responses aloud. On-device providers run locally without API keys.',
     xai: {
       voiceId: 'xAI voice ID (e.g. eve) or a custom voice ID.',
       language: 'Spoken language code, e.g. en.'
@@ -475,6 +577,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   stt: {
     enabled: 'Enable local or provider-backed speech transcription.',
+    provider: 'Choose how Zeus transcribes your voice. On-device providers run locally without API keys.',
     elevenlabs: {
       languageCode: 'Optional ISO-639-3 language code. Blank lets ElevenLabs auto-detect.'
     }
@@ -588,6 +691,55 @@ export const SECTIONS: DesktopConfigSection[] = [
       'stt.elevenlabs.diarize',
       'voice.record_key',
       'voice.max_recording_seconds'
+    ],
+    groups: [
+      {
+        id: 'tts',
+        labelKey: 'tts',
+        keys: [
+          'tts.provider',
+          'tts.edge.voice',
+          'tts.openai.model',
+          'tts.openai.voice',
+          'tts.elevenlabs.voice_id',
+          'tts.elevenlabs.model_id',
+          'tts.xai.voice_id',
+          'tts.xai.language',
+          'tts.minimax.model',
+          'tts.minimax.voice_id',
+          'tts.mistral.model',
+          'tts.mistral.voice_id',
+          'tts.gemini.model',
+          'tts.gemini.voice',
+          'tts.neutts.model',
+          'tts.neutts.device',
+          'tts.kittentts.model',
+          'tts.kittentts.voice',
+          'tts.piper.voice'
+        ]
+      },
+      {
+        id: 'stt',
+        labelKey: 'stt',
+        keys: [
+          'stt.enabled',
+          'stt.provider',
+          'stt.local.model',
+          'stt.local.language',
+          'stt.openai.model',
+          'stt.groq.model',
+          'stt.mistral.model',
+          'stt.elevenlabs.model_id',
+          'stt.elevenlabs.language_code',
+          'stt.elevenlabs.tag_audio_events',
+          'stt.elevenlabs.diarize'
+        ]
+      },
+      {
+        id: 'voiceMode',
+        labelKey: 'voiceMode',
+        keys: ['voice.auto_tts', 'voice.record_key', 'voice.max_recording_seconds']
+      }
     ]
   },
   {

@@ -277,6 +277,21 @@ export const zhHant = defineLocale({
       voice: '語音',
       advanced: '進階'
     },
+    sectionGroups: {
+      tts: '文字轉語音',
+      stt: '語音轉文字',
+      voiceMode: '語音模式'
+    },
+    providerGroups: {
+      'on-device': '本機裝置',
+      cloud: '雲端',
+      onDeviceShort: '本機',
+      cloudShort: '雲端'
+    },
+    providerBadges: {
+      'on-device': '本機裝置',
+      cloud: '雲端'
+    },
     searchPlaceholder: {
       about: '關於 Zeus Desktop',
       config: '搜尋設定…',

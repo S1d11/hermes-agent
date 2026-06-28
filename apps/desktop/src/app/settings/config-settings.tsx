@@ -2,8 +2,10 @@ import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { Badge } from '@/components/ui/badge'
+import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -18,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { notify, notifyError } from '@/store/notifications'
 import type { ConfigFieldSchema, HermesConfigRecord } from '@/types/hermes'
 
-import { CONTROL_TEXT, EMPTY_SELECT_VALUE, FIELD_DESCRIPTIONS, FIELD_LABELS, SECTIONS } from './constants'
+import { CONTROL_TEXT, EMPTY_SELECT_VALUE, FIELD_DESCRIPTIONS, FIELD_LABELS, GROUPED_PROVIDER_KEYS, OPTION_LABELS, PROVIDER_OPTION_META, SECTIONS } from './constants'
 import { fieldCopyForSchemaKey } from './field-copy'
 import { enumOptionsFor, getNested, prettyName, setNested } from './helpers'
 import { MemoryConnect } from './memory/connect'
@@ -44,6 +46,93 @@ export function voiceFieldVisible(key: string, config: HermesConfigRecord): bool
   }
 
   return provider === String(getNested(config, `${domain}.provider`) ?? '')
+}
+
+function ProviderCategoryBadge({ category }: { category: 'on-device' | 'cloud' }) {
+  const { t } = useI18n()
+  const badge = t.settings.providerBadges[category]
+
+  return (
+    <Badge variant={category === 'on-device' ? 'default' : 'muted'}>
+      {category === 'on-device' && <Codicon className="size-3" name="chip" />}
+      {category === 'cloud' && <Codicon className="size-3" name="cloud" />}
+      {badge}
+    </Badge>
+  )
+}
+
+function GroupedProviderSelect({
+  schemaKey,
+  selectOptions,
+  value,
+  optionLabels,
+  onChange
+}: {
+  schemaKey: string
+  selectOptions: string[]
+  value: unknown
+  optionLabels?: Record<string, string>
+  onChange: (value: unknown) => void
+}) {
+  const { t } = useI18n()
+  const c = t.settings.config
+  const meta = PROVIDER_OPTION_META[schemaKey] ?? {}
+  const labels = OPTION_LABELS[schemaKey] ?? {}
+  const groupLabels = t.settings.providerGroups
+
+  // Partition options into on-device / cloud groups, preserving the original
+  // order from ENUM_OPTIONS within each group.
+  const onDevice = selectOptions.filter(opt => (meta[opt]?.category ?? 'cloud') === 'on-device')
+  const cloud = selectOptions.filter(opt => (meta[opt]?.category ?? 'cloud') === 'cloud')
+
+  const renderGroup = (groupName: 'on-device' | 'cloud', opts: string[]) => {
+    if (opts.length === 0) {
+      return null
+    }
+
+    return (
+      <SelectGroup key={groupName}>
+        <SelectLabel>{groupLabels[groupName]}</SelectLabel>
+        {opts.map(option => {
+          const optMeta = meta[option]
+
+          const displayLabel = option
+            ? (optionLabels?.[option] ?? labels[option] ?? prettyName(option))
+            : schemaKey === 'display.personality'
+              ? c.none
+              : c.noneParen
+
+          return (
+            <SelectItem key={option || EMPTY_SELECT_VALUE} value={option || EMPTY_SELECT_VALUE}>
+              <span className="flex items-center gap-2">
+                <span>{displayLabel}</span>
+                {optMeta && (
+                  <Badge variant={optMeta.category === 'on-device' ? 'default' : 'muted'}>
+                    {optMeta.category === 'on-device' ? groupLabels.onDeviceShort : groupLabels.cloudShort}
+                  </Badge>
+                )}
+              </span>
+            </SelectItem>
+          )
+        })}
+      </SelectGroup>
+    )
+  }
+
+  return (
+    <Select
+      onValueChange={next => onChange(next === EMPTY_SELECT_VALUE ? '' : next)}
+      value={String(value ?? '') || EMPTY_SELECT_VALUE}
+    >
+      <SelectTrigger className={CONTROL_TEXT}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {renderGroup('on-device', onDevice)}
+        {renderGroup('cloud', cloud)}
+      </SelectContent>
+    </Select>
+  )
 }
 
 function ConfigField({
@@ -110,8 +199,44 @@ function ConfigField({
 
   const selectOptions = enumOptions ?? (schema.type === 'select' ? (schema.options ?? []).map(String) : undefined)
 
+  // Provider badge shown next to the field description when a provider is
+  // selected and we have category metadata for it.
+  const providerMetaForCurrent = PROVIDER_OPTION_META[schemaKey]?.[String(value ?? '')]
+
+  const providerBadge: ReactNode | undefined = providerMetaForCurrent ? (
+    <ProviderCategoryBadge category={providerMetaForCurrent.category} />
+  ) : undefined
+
+  const descriptionWithBadge: ReactNode = providerBadge ? (
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+      {description}
+      {providerBadge}
+    </span>
+  ) : (
+    descriptionNode
+  )
+
+  const rowWithBadge = (action: ReactNode, wide = false) => (
+    <ListRow action={action} description={descriptionWithBadge} title={label} wide={wide} />
+  )
+
   if (selectOptions) {
-    return row(
+    // Grouped select for provider-type fields (stt.provider, tts.provider,
+    // terminal.backend, memory.provider) — options are split into
+    // "On-device" and "Cloud" groups with badges in each item.
+    if (GROUPED_PROVIDER_KEYS.has(schemaKey)) {
+      return rowWithBadge(
+        <GroupedProviderSelect
+          onChange={onChange}
+          optionLabels={optionLabels}
+          schemaKey={schemaKey}
+          selectOptions={selectOptions}
+          value={value}
+        />
+      )
+    }
+
+    return rowWithBadge(
       <Select
         onValueChange={next => onChange(next === EMPTY_SELECT_VALUE ? '' : next)}
         value={String(value ?? '') || EMPTY_SELECT_VALUE}
@@ -316,7 +441,28 @@ export function ConfigSettings({
     )
   }, [schema])
 
+  const activeSection = SECTIONS.find(s => s.id === activeSectionId)
   const fields = sectionFields.get(activeSectionId) ?? []
+  const isVoiceSection = activeSectionId === 'voice'
+
+  // Build grouped field lists when the section defines sub-groups. Must run
+  // before any early return so hook order is stable across renders.
+  const groupedVisibleFields = useMemo(() => {
+    if (!activeSection?.groups || !config || !schema) {
+      return null
+    }
+
+    return activeSection.groups
+      .map(group => {
+        const groupFields = group.keys
+          .filter(key => schema[key])
+          .filter(key => !isVoiceSection || voiceFieldVisible(key, config))
+          .map(key => [key, schema[key]] as [string, ConfigFieldSchema])
+
+        return { group, fields: groupFields }
+      })
+      .filter(entry => entry.fields.length > 0)
+  }, [activeSection, config, isVoiceSection, schema])
 
   // Deep-link target from the command palette (?field=<key>): scroll the row
   // into view and flash it, then drop the param so it doesn't re-fire.
@@ -378,7 +524,43 @@ export function ConfigSettings({
     return <LoadingState label={c.loading} />
   }
 
-  const visibleFields = activeSectionId === 'voice' ? fields.filter(([key]) => voiceFieldVisible(key, config)) : fields
+  // Capture narrowed config/schema for use inside nested closures (TypeScript
+  // does not preserve null-narrowing of the state variables inside them).
+  const cfg = config
+  const schemaMap = schema
+
+  const visibleFields = isVoiceSection ? fields.filter(([key]) => voiceFieldVisible(key, cfg)) : fields
+
+  function renderConfigField(key: string, field: ConfigFieldSchema) {
+    return (
+      <div className="scroll-mt-6 rounded-lg" id={`setting-field-${key}`} key={key}>
+        <ConfigField
+          descriptionExtra={
+            key === 'memory.provider' && Boolean(getNested(cfg, key)) ? (
+              <MemoryConnect provider={String(getNested(cfg, key))} />
+            ) : undefined
+          }
+          enumOptions={
+            key === 'tts.elevenlabs.voice_id'
+              ? enumOptionsFor(key, getNested(cfg, key), cfg, elevenLabsVoiceOptions ?? undefined)
+              : enumOptionsFor(key, getNested(cfg, key), cfg)
+          }
+          onChange={value => updateConfig(setNested(cfg, key, value))}
+          optionLabels={key === 'tts.elevenlabs.voice_id' ? elevenLabsVoiceLabels : undefined}
+          schema={field}
+          schemaKey={key}
+          value={getNested(cfg, key)}
+        />
+        {key === 'memory.provider' && typeof getNested(cfg, key) === 'string' && getNested(cfg, key) ? (
+          <ProviderConfigPanel provider={String(getNested(cfg, key))} />
+        ) : null}
+      </div>
+    )
+  }
+
+  const hasContent = groupedVisibleFields
+    ? groupedVisibleFields.some(entry => entry.fields.length > 0)
+    : visibleFields.length > 0
 
   return (
     <SettingsContent>
@@ -387,34 +569,24 @@ export function ConfigSettings({
           <ModelSettings onMainModelChanged={onMainModelChanged} />
         </div>
       )}
-      {visibleFields.length === 0 ? (
+      {!hasContent ? (
         <EmptyState description={c.emptyDesc} title={c.emptyTitle} />
-      ) : (
+      ) : groupedVisibleFields ? (
         <div className="grid gap-1">
-          {visibleFields.map(([key, field]) => (
-            <div className="scroll-mt-6 rounded-lg" id={`setting-field-${key}`} key={key}>
-              <ConfigField
-                descriptionExtra={
-                  key === 'memory.provider' && Boolean(getNested(config, key)) ? (
-                    <MemoryConnect provider={String(getNested(config, key))} />
-                  ) : undefined
-                }
-                enumOptions={
-                  key === 'tts.elevenlabs.voice_id'
-                    ? enumOptionsFor(key, getNested(config, key), config, elevenLabsVoiceOptions ?? undefined)
-                    : enumOptionsFor(key, getNested(config, key), config)
-                }
-                onChange={value => updateConfig(setNested(config, key, value))}
-                optionLabels={key === 'tts.elevenlabs.voice_id' ? elevenLabsVoiceLabels : undefined}
-                schema={field}
-                schemaKey={key}
-                value={getNested(config, key)}
-              />
-              {key === 'memory.provider' && typeof getNested(config, key) === 'string' && getNested(config, key) ? (
-                <ProviderConfigPanel provider={String(getNested(config, key))} />
-              ) : null}
+          {groupedVisibleFields.map(({ group, fields: groupFields }) => (
+            <div key={group.id}>
+              <div className="mb-1 mt-4 flex items-center gap-2 border-b border-(--ui-stroke-secondary) pb-1.5 first:mt-0">
+                <span className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
+                  {t.settings.sectionGroups[group.labelKey] ?? prettyName(group.labelKey)}
+                </span>
+              </div>
+              {groupFields.map(([key, field]) => renderConfigField(key, field))}
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="grid gap-1">
+          {visibleFields.map(([key, field]) => renderConfigField(key, field))}
         </div>
       )}
       <input
