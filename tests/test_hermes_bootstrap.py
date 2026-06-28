@@ -231,6 +231,65 @@ class TestStdioReconfigureErrorHandling:
         hb.apply_windows_utf8_bootstrap()
 
 
+class TestDetachOrphanConsole:
+    """detach_orphan_console() frees a solo-owned console (the uv pythonw→python
+    phantom) but leaves a shared interactive console attached, and is a pure
+    no-op on POSIX. It is intentionally NOT run at import time — only background
+    entry points call it, never the interactive CLI/TUI."""
+
+    def test_noop_on_posix(self):
+        hb = _fresh_import()
+        hb._IS_WINDOWS = False
+        assert hb.detach_orphan_console() is False
+
+    def test_not_called_at_import_time(self):
+        import pathlib
+        src = pathlib.Path(_fresh_import().__file__).read_text(encoding="utf-8")
+        body = src.split("def detach_orphan_console")[0]
+        assert "FreeConsole" not in body, (
+            "FreeConsole must live only inside detach_orphan_console(), not in "
+            "apply_windows_utf8_bootstrap() / module import path"
+        )
+
+    def _fake_ctypes(self, monkeypatch, window, nproc):
+        import ctypes
+
+        class _K:
+            def __init__(self):
+                self.freed = False
+            def GetConsoleWindow(self):
+                return window
+            def GetConsoleProcessList(self, buf, n):
+                return nproc
+            def FreeConsole(self):
+                self.freed = True
+
+        k = _K()
+        monkeypatch.setattr(ctypes, "windll", type("_W", (), {"kernel32": k})(), raising=False)
+        return k
+
+    def test_frees_when_solo_owner(self, monkeypatch):
+        hb = _fresh_import()
+        hb._IS_WINDOWS = True
+        k = self._fake_ctypes(monkeypatch, window=1, nproc=1)
+        assert hb.detach_orphan_console() is True
+        assert k.freed is True
+
+    def test_leaves_shared_console_attached(self, monkeypatch):
+        hb = _fresh_import()
+        hb._IS_WINDOWS = True
+        k = self._fake_ctypes(monkeypatch, window=1, nproc=2)
+        assert hb.detach_orphan_console() is False
+        assert k.freed is False
+
+    def test_noop_without_console(self, monkeypatch):
+        hb = _fresh_import()
+        hb._IS_WINDOWS = True
+        k = self._fake_ctypes(monkeypatch, window=0, nproc=1)
+        assert hb.detach_orphan_console() is False
+        assert k.freed is False
+
+
 class TestEntryPointsImportBootstrap:
     """Every Hermes entry point must import hermes_bootstrap as its
     first non-docstring import.  We check this by scanning source files

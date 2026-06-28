@@ -122,6 +122,47 @@ def apply_windows_utf8_bootstrap() -> bool:
     return True
 
 
+def detach_orphan_console() -> bool:
+    """Free a console window that was auto-allocated for this process alone.
+
+    Background-only entry points (gateway daemon, dashboard backend, cron
+    runner, TUI/desktop stdio backends) call this explicitly. uv-created venvs
+    ship a ``Scripts\\pythonw.exe`` redirector that re-execs the *base* console
+    ``python.exe``; that re-exec allocates its own conhost/Windows Terminal
+    window even though the launcher wanted no console. The clean-start and
+    post-update gateway spawns already avoid this by resolving the base
+    ``pythonw.exe`` (see ``gateway_windows.windowless_gateway_restart_spec``);
+    this is the catch-all for any background path that still lands on a console
+    interpreter.
+
+    NOT wired into the import-time bootstrap on purpose: the discriminator
+    (``GetConsoleProcessList() == 1``) cannot tell a phantom console apart from a
+    user who deliberately opened the *interactive* CLI/TUI in its own fresh
+    console (double-click, Start-menu shortcut, a ConPTY) — both report a single
+    attached process with a tty. Intent is only knowable from the entry point, so
+    only known-background mains call this, never the interactive CLI.
+
+    A properly detached daemon (``DETACHED_PROCESS``) has no console at all, so
+    ``GetConsoleWindow()`` is NULL and this is a no-op. Returns True iff a console
+    was actually freed. No-op (returns False) on non-Windows.
+    """
+    if not _IS_WINDOWS:
+        return False
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        if not kernel32.GetConsoleWindow():
+            return False
+        buf = (ctypes.c_uint * 4)()
+        if kernel32.GetConsoleProcessList(buf, 4) == 1:
+            kernel32.FreeConsole()
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def harden_import_path(src_root: str | None = None) -> None:
     """Stop a package in the current directory from shadowing Hermes modules.
 

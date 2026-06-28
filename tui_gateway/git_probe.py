@@ -42,10 +42,18 @@ _NEG_TTL = 30.0
 
 
 def run_git(cwd: str, *args: str) -> str:
-    """``git -C <cwd> <args>`` → stripped stdout, or ``""`` on any failure."""
+    """``git -C <cwd> <args>`` → stripped stdout, or ``""`` on any failure.
+
+    ``creationflags=windows_hide_flags()`` keeps the per-repo probe windowless on
+    Windows: the dashboard Projects tree fans this out on a periodic poll, and a
+    console-less backend (Desktop/gateway) otherwise flashes a conhost per repo
+    every few seconds even though stdout is captured (#53178). No-op on POSIX.
+    """
     if not cwd:
         return ""
     try:
+        from hermes_cli._subprocess_compat import windows_hide_flags
+
         result = subprocess.run(
             ["git", "-C", cwd, *args],
             capture_output=True,
@@ -53,6 +61,7 @@ def run_git(cwd: str, *args: str) -> str:
             timeout=_GIT_TIMEOUT,
             check=False,
             stdin=subprocess.DEVNULL,
+            creationflags=windows_hide_flags(),
         )
         return result.stdout.strip() if result.returncode == 0 else ""
     except Exception:
