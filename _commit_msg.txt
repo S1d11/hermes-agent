@@ -1,12 +1,24 @@
-fix: restore window from tray when clicking taskbar/Start Menu icon
+v0.21.1: Changelog dialog, README overhaul, tray tooltip fix
 
-The second-instance handler only called restore()+focus() on the main
-window, which does nothing when the window is hidden to tray (not just
-minimized). Now calls showWindowFromTray() which properly calls
-win.show() before focus. Also recreates the window if it was destroyed
-while the app is still running in tray-only mode.
+Changelog dialog (click version badge in status bar):
+- New ChangelogDialog component fetches recent releases from GitHub API
+- Shows release notes, dates, download assets, and "Current" badge
+- Clicking the version badge in the bottom-right status bar now opens
+  the changelog dialog (for packaged/NSIS installs) instead of being
+  a no-op
+- Refresh button to re-fetch releases
+- Links to view full release on GitHub
 
-Also fixes remaining "Zeus Agent" tray tooltip strings -> "Zeus".
+README overhaul:
+- Rewritten main README.md with correct S1d11/zeus repo links
+- Updated install instructions to point to raw.githubusercontent.com
+- Added Desktop App section with feature list
+- Removed Nous Research / Discord branding
+- Updated desktop README.md with MCP, changelog, tray features
+- Fixed all download/doc links to point to the correct repo
+
+Tray tooltip fix:
+- Cleaned up remaining "Zeus Agent" -> "Zeus" in tray tooltips
 
 Generated with [Devin](https://devin.ai)
 

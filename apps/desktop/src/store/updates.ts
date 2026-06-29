@@ -48,6 +48,10 @@ export const $updateChecking = atom<boolean>(false)
 export const $updateOverlayOpen = atom<boolean>(false)
 export const $updateStatus = atom<DesktopUpdateStatus | null>(null)
 
+// Changelog dialog — opened by clicking the version badge in the status bar.
+export const $changelogOpen = atom<boolean>(false)
+export const setChangelogOpen = (open: boolean) => $changelogOpen.set(open)
+
 // Client and backend are independently updatable; each keeps its own state.
 export const $backendUpdateStatus = atom<DesktopUpdateStatus | null>(null)
 export const $backendUpdateApply = atom<UpdateApplyState>(IDLE)

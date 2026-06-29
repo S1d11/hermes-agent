@@ -30,7 +30,8 @@ import {
   $desktopVersion,
   $updateApply,
   $updateStatus,
-  openUpdateOverlayFor
+  openUpdateOverlayFor,
+  setChangelogOpen
 } from '@/store/updates'
 import type { StatusResponse } from '@/types/hermes'
 
@@ -214,7 +215,11 @@ export function useStatusbarItems({
       label,
       onSelect: () => {
         if (isPackaged) {
-          return  // No git-based overlay for packaged installs
+          // For packaged (NSIS) installs, the git-based update overlay is
+          // irrelevant. Instead, open the changelog dialog so the user can
+          // see what version they're on and what's new in recent releases.
+          setChangelogOpen(true)
+          return
         }
 
         openUpdateOverlayFor('client')
