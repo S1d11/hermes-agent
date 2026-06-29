@@ -16056,7 +16056,7 @@ var require_tray = __commonJS2({
         return null;
       }
       tray = new Tray(icon);
-      tray.setToolTip("Zeus Agent \u2014 click to show/hide");
+      tray.setToolTip("Zeus \u2014 click to show/hide");
       tray.on("click", () => {
         toggleWindowVisibility();
       });
@@ -30910,9 +30910,16 @@ if (!_gotSingleInstanceLock) {
   app.on("second-instance", (_event, argv) => {
     const url = _extractDeepLink(argv);
     if (url) handleDeepLink(url);
-    else if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
+    else if (mainWindow && !mainWindow.isDestroyed()) {
+      if (trayModule?.showWindowFromTray) {
+        trayModule.showWindowFromTray();
+      } else {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        if (!mainWindow.isVisible()) mainWindow.show();
+        mainWindow.focus();
+      }
+    } else {
+      createWindow();
     }
   });
 }
@@ -30921,7 +30928,7 @@ ipcMain.handle("zeus:wake-word:toggle", () => {
   if (wakeWordModule.isWakeWordListening()) {
     wakeWordModule.stopWakeWordListener();
     trayModule?.setWakeWordMenuItemEnabled(false);
-    trayModule?.updateTrayTooltip("Zeus Agent \u2014 wake word off");
+    trayModule?.updateTrayTooltip("Zeus \u2014 wake word off");
     return { enabled: false };
   }
   const started = wakeWordModule.startWakeWordListener({
@@ -30940,7 +30947,7 @@ ipcMain.handle("zeus:wake-word:toggle", () => {
   });
   trayModule?.setWakeWordMenuItemEnabled(started);
   if (started) {
-    trayModule?.updateTrayTooltip('Zeus Agent \u2014 listening for "Hey Zeus"');
+    trayModule?.updateTrayTooltip('Zeus \u2014 listening for "Hey Zeus"');
   }
   return { enabled: started };
 });
@@ -31085,7 +31092,7 @@ app.whenReady().then(() => {
           if (!wakeWordModule) return false;
           if (wakeWordModule.isWakeWordListening()) {
             wakeWordModule.stopWakeWordListener();
-            trayModule?.updateTrayTooltip("Zeus Agent \u2014 wake word off");
+            trayModule?.updateTrayTooltip("Zeus \u2014 wake word off");
             return false;
           }
           const started = wakeWordModule.startWakeWordListener({
@@ -31097,20 +31104,20 @@ app.whenReady().then(() => {
               } else if (!mainWindow || mainWindow.isDestroyed()) {
                 createWindow();
               }
-              trayModule?.updateTrayTooltip("Zeus Agent \u2014 wake word detected!");
+              trayModule?.updateTrayTooltip("Zeus \u2014 wake word detected!");
               setTimeout(() => {
-                trayModule?.updateTrayTooltip('Zeus Agent \u2014 listening for "Hey Zeus"');
+                trayModule?.updateTrayTooltip('Zeus \u2014 listening for "Hey Zeus"');
               }, 3e3);
             },
             onError: (msg) => {
               console.error("[wake-word]", msg);
-              trayModule?.updateTrayTooltip("Zeus Agent \u2014 wake word error");
+              trayModule?.updateTrayTooltip("Zeus \u2014 wake word error");
             },
             onStatus: (msg) => {
             }
           });
           if (started) {
-            trayModule?.updateTrayTooltip('Zeus Agent \u2014 listening for "Hey Zeus"');
+            trayModule?.updateTrayTooltip('Zeus \u2014 listening for "Hey Zeus"');
           }
           return started;
         }

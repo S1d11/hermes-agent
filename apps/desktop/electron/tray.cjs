@@ -169,7 +169,7 @@ function createTray(ref, opts = {}) {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip("Zeus Agent — click to show/hide");
+  tray.setToolTip("Zeus — click to show/hide");
 
   tray.on("click", () => {
     toggleWindowVisibility();

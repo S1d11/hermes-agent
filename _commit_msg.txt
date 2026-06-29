@@ -1,0 +1,13 @@
+fix: restore window from tray when clicking taskbar/Start Menu icon
+
+The second-instance handler only called restore()+focus() on the main
+window, which does nothing when the window is hidden to tray (not just
+minimized). Now calls showWindowFromTray() which properly calls
+win.show() before focus. Also recreates the window if it was destroyed
+while the app is still running in tray-only mode.
+
+Also fixes remaining "Zeus Agent" tray tooltip strings -> "Zeus".
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
