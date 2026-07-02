@@ -4782,7 +4782,7 @@ class DiscordAdapter(BasePlatformAdapter):
             return None
 
         thread_name = (name or "handoff").strip()[:80] or "handoff"
-        reason = "Hermes session handoff"
+        reason = "Zeus session handoff"
 
         # First try: create a thread directly on the channel.
         try:

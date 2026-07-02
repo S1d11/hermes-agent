@@ -57,7 +57,7 @@ evolves the top candidates. Results saved to git branches.
 hermes evolve auto --cron
 hermes evolve auto --cron --cron-interval "0 3 * * *"
 ```
-Registers the self-improvement loop as a Hermes cron job that runs
+Registers the self-improvement loop as a Zeus cron job that runs
 automatically on schedule (default: daily at 3 AM). The loop will
 analyze sessions, evolve candidates, and create git branches without
 manual intervention. Review branches at your convenience.
@@ -156,5 +156,5 @@ hermes evolve prompt --list-sections
   datasets from real Zeus session history (SQLite SessionDB), not just
   synthetic data. This produces more realistic evaluation examples.
 - **Cron scheduling**: `hermes evolve auto --cron` registers the loop
-  as a Hermes cron job. The loop runs on schedule, creates branches,
+  as a Zeus cron job. The loop runs on schedule, creates branches,
   and never auto-merges — you review when convenient.

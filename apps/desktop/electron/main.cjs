@@ -17213,12 +17213,12 @@ var require_dashboard_token = __commonJS22({
     async function fetchPublicText(url, options = {}) {
       const { protocol: protocol2 } = new URL(url);
       if (protocol2 !== "http:" && protocol2 !== "https:") {
-        throw new Error(`Unsupported Hermes backend URL protocol: ${protocol2}`);
+        throw new Error(`Unsupported Zeus backend URL protocol: ${protocol2}`);
       }
       const timeoutMs = options.timeoutMs ?? DEFAULT_TOKEN_FETCH_TIMEOUT_MS;
       const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).catch((error) => {
         if (error.name === "TimeoutError") {
-          throw new Error(`Timed out connecting to Hermes backend after ${timeoutMs}ms`);
+          throw new Error(`Timed out connecting to Zeus backend after ${timeoutMs}ms`);
         }
         throw error;
       });
@@ -17252,7 +17252,7 @@ var require_dashboard_token = __commonJS22({
     function isForeignBackendToken({ servedToken, spawnToken, childAlive }) {
       return Boolean(servedToken) && servedToken !== spawnToken && !childAlive;
     }
-    async function adoptServedDashboardToken2(baseUrl, spawnToken, { childAlive, label = "Hermes backend", ...options }) {
+    async function adoptServedDashboardToken2(baseUrl, spawnToken, { childAlive, label = "Zeus backend", ...options }) {
       const servedToken = await resolveServedDashboardToken(baseUrl, spawnToken, options).catch((error) => {
         options.rememberLog?.(`[boot] could not read served dashboard token (${label}): ${error.message}`);
         return spawnToken;
@@ -17317,7 +17317,7 @@ var require_backend_ready = __commonJS22({
         }
         function onExit(code, signal) {
           cleanup();
-          reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`));
+          reject(new Error(`Zeus backend: exited before port announcement (${signal || code})`));
         }
         function onError(err) {
           cleanup();
@@ -17325,7 +17325,7 @@ var require_backend_ready = __commonJS22({
         }
         const timer = setTimeout(() => {
           cleanup();
-          reject(new Error(`Timed out waiting for Hermes backend port announcement (${timeoutMs}ms)`));
+          reject(new Error(`Timed out waiting for Zeus backend port announcement (${timeoutMs}ms)`));
         }, timeoutMs);
         child.stdout.on("data", onData);
         child.on("exit", onExit);
@@ -17363,7 +17363,7 @@ var require_backend_ready = __commonJS22({
         }
         function onExit(code, signal) {
           cleanup();
-          reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`));
+          reject(new Error(`Zeus backend: exited before port announcement (${signal || code})`));
         }
         function onError(err) {
           cleanup();
@@ -17371,7 +17371,7 @@ var require_backend_ready = __commonJS22({
         }
         const timer = setTimeout(() => {
           cleanup();
-          reject(new Error(`Timed out waiting for Hermes backend port announcement (${timeoutMs}ms)`));
+          reject(new Error(`Timed out waiting for Zeus backend port announcement (${timeoutMs}ms)`));
         }, timeoutMs);
         child.on("exit", onExit);
         child.on("error", onError);
@@ -17628,7 +17628,7 @@ var require_vscode_marketplace = __commonJS22({
         throw new Error('Expected a Marketplace id like "publisher.extension".');
       }
       const { displayName, vsixUrl } = await resolveExtension(trimmed);
-      const vsix = await request(vsixUrl, { headers: { "User-Agent": "Hermes-Desktop" } });
+      const vsix = await request(vsixUrl, { headers: { "User-Agent": "Zeus-Desktop" } });
       const themes = extractThemes(vsix);
       return { extensionId: trimmed, displayName, themes };
     }
@@ -17894,7 +17894,7 @@ var require_hardening = __commonJS22({
       }
       if (!encryptionAvailable) {
         throw new Error(
-          "Secure token storage is unavailable, so Hermes Desktop cannot save remote gateway tokens. Set HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN in your environment, or enable OS keychain access and try again."
+          "Secure token storage is unavailable, so Zeus Desktop cannot save remote gateway tokens. Set HERMES_DESKTOP_REMOTE_URL and HERMES_DESKTOP_REMOTE_TOKEN in your environment, or enable OS keychain access and try again."
         );
       }
       try {
@@ -25523,7 +25523,7 @@ var require_connection_config = __commonJS22({
       }
       let parsed;
       try {
-        parsed = new URL(rawPath, "http://hermes.local");
+        parsed = new URL(rawPath, "http://Zeus.local");
       } catch {
         return path2;
       }
@@ -26470,7 +26470,7 @@ async function waitForUpdateToFinish() {
   while (marker && Date.now() < deadline) {
     await advanceBootProgress(
       "backend.update-wait",
-      "An update is finishing \u2014 Hermes will start automatically when it completes\u2026",
+      "An update is finishing \u2014 Zeus will start automatically when it completes\u2026",
       12
     );
     await new Promise((r) => setTimeout(r, UPDATE_WAIT_POLL_MS));
@@ -26517,7 +26517,7 @@ function unwrapWindowsVenvHermesCommand(command, dashboardArgs) {
   if (!fileExists(python)) return null;
   const root = path.dirname(venvRoot);
   return {
-    label: `existing Hermes no-console Python at ${python}`,
+    label: `existing Zeus no-console Python at ${python}`,
     command: python,
     args: ["-m", "hermes_cli.main", ...dashboardArgs],
     bootstrap: false,
@@ -26991,7 +26991,7 @@ function repairMacUpdaterHelper(updater) {
   }
 }
 function venvHermesShimPath(updateRoot) {
-  return IS_WINDOWS ? path.join(updateRoot, "venv", "Scripts", "hermes.exe") : path.join(updateRoot, "venv", "bin", "hermes");
+  return IS_WINDOWS ? path.join(updateRoot, "venv", "Scripts", "Zeus.exe") : path.join(updateRoot, "venv", "bin", "hermes");
 }
 function isShimLocked(shimPath) {
   if (!IS_WINDOWS) return false;
@@ -27076,7 +27076,7 @@ async function applyUpdates(opts = {}) {
     }
     emitUpdateProgress({
       stage: "restart",
-      message: "Updating Hermes \u2014 this window will close and the updater will open. Don\u2019t reopen Hermes yourself; it restarts automatically when the update finishes.",
+      message: "Updating Zeus \u2014 this window will close and the updater will open. Don\u2019t reopen Zeus yourself; it restarts automatically when the update finishes.",
       percent: 100
     });
     repairMacUpdaterHelper(updater);
@@ -27119,7 +27119,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
   const { branch: configuredBranch } = readDesktopUpdateConfig();
   const branch = directoryExists(path.join(updateRoot, ".git")) ? await resolveHealedBranch(updateRoot, configuredBranch || DEFAULT_UPDATE_BRANCH) : configuredBranch || DEFAULT_UPDATE_BRANCH;
   const venvBin = path.join(updateRoot, "venv", IS_WINDOWS ? "Scripts" : "bin");
-  const venvHermes = path.join(venvBin, IS_WINDOWS ? "hermes.exe" : "hermes");
+  const venvHermes = path.join(venvBin, IS_WINDOWS ? "Zeus.exe" : "hermes");
   const updaterArgs = fileExists(venvHermes) ? ["--update", "--branch", branch] : ["--repair", "--branch", branch];
   await releaseBackendLockForUpdate(updateRoot);
   const child = spawn(updater, updaterArgs, {
@@ -27217,7 +27217,7 @@ async function applyUpdatesPosixInApp() {
     }
   } catch {
   }
-  emitUpdateProgress({ stage: "update", message: "Updating Hermes (git + dependencies)\u2026", percent: 10 });
+  emitUpdateProgress({ stage: "update", message: "Updating Zeus (git + dependencies)\u2026", percent: 10 });
   const updated = await runStreamedUpdate(hermes, ["update", "--yes", ...branchArgs], {
     cwd: updateRoot,
     env: env22,
@@ -27237,7 +27237,7 @@ async function applyUpdatesPosixInApp() {
   if (rebuilt.code !== 0) {
     emitUpdateProgress({
       stage: "error",
-      message: "Backend updated, but the desktop rebuild failed. Restart Hermes to retry.",
+      message: "Backend updated, but the desktop rebuild failed. Restart Zeus to retry.",
       error: rebuilt.error || "rebuild-failed"
     });
     return { ok: false, backendUpdated: true, error: "desktop rebuild failed" };
@@ -27255,7 +27255,7 @@ async function applyUpdatesPosixInApp() {
     }
     const outcome = decideRelaunchOutcome({ underUnpacked, sandboxOk });
     if (outcome === "relaunch") {
-      emitUpdateProgress({ stage: "restart", message: "Restarting Hermes\u2026", percent: 100 });
+      emitUpdateProgress({ stage: "restart", message: "Restarting Zeus\u2026", percent: 100 });
       const relaunchArgs = collectRelaunchArgs(process.argv.slice(1));
       const relaunchEnv = collectRelaunchEnv(process.env);
       const relaunchScript = buildRelaunchScript({
@@ -27282,14 +27282,14 @@ async function applyUpdatesPosixInApp() {
           backendUpdated: true,
           guiUpdated: false,
           manualRestart: true,
-          message: "Backend updated. Quit and reopen Hermes to load the new version."
+          message: "Backend updated. Quit and reopen Zeus to load the new version."
         };
       }
     }
     if (outcome === "guiSkew") {
       emitUpdateProgress({
         stage: "guiSkew",
-        message: "Backend updated, but the desktop app package was not changed. Update or reinstall the Hermes desktop app to match.",
+        message: "Backend updated, but the desktop app package was not changed. Update or reinstall the Zeus Desktop app to match.",
         percent: 100
       });
       rememberLog(
@@ -27306,18 +27306,18 @@ async function applyUpdatesPosixInApp() {
       guiUpdated: false,
       manualRestart: true,
       sandboxBlocked: true,
-      message: "Backend updated. The rebuilt app can\u2019t relaunch automatically (sandbox helper needs root). Quit and reopen Hermes to finish."
+      message: "Backend updated. The rebuilt app can\u2019t relaunch automatically (sandbox helper needs root). Quit and reopen Zeus to finish."
     };
   }
   const rebuiltApp = [
-    path.join(updateRoot, "apps", "desktop", "release", "mac-arm64", "Hermes.app"),
-    path.join(updateRoot, "apps", "desktop", "release", "mac", "Hermes.app")
+    path.join(updateRoot, "apps", "desktop", "release", "mac-arm64", "Zeus.app"),
+    path.join(updateRoot, "apps", "desktop", "release", "mac", "Zeus.app")
   ].find(directoryExists);
   const targetApp = runningAppBundle();
   if (!rebuiltApp || !targetApp) {
     emitUpdateProgress({
       stage: "done",
-      message: "Backend updated. Restart Hermes to load the new version.",
+      message: "Backend updated. Restart Zeus to load the new version.",
       percent: 100
     });
     return { ok: true, backendUpdated: true, rebuiltApp: rebuiltApp || null };
@@ -27349,7 +27349,7 @@ fi
   } catch (err) {
     emitUpdateProgress({
       stage: "done",
-      message: "Backend + app updated. Restart Hermes to load the new version.",
+      message: "Backend + app updated. Restart Zeus to load the new version.",
       percent: 100
     });
     rememberLog(`[updates] could not write swap script: ${err.message}; rebuilt app at ${rebuiltApp}`);
@@ -27408,7 +27408,7 @@ function resolveRendererIndex() {
   const found = candidates.find(fileExists);
   if (found) return found;
   rememberLog(
-    `[renderer] index.html not found \u2014 the desktop app was packaged without a renderer bundle. Tried: ${candidates.join(", ")}. Rebuild with: hermes desktop --force-build`
+    `[renderer] index.html not found \u2014 the desktop app was packaged without a renderer bundle. Tried: ${candidates.join(", ")}. Rebuild with: Zeus Desktop --force-build`
   );
   return candidates[0];
 }
@@ -27509,7 +27509,7 @@ function createActiveBackend(dashboardArgs) {
   const command = fileExists(venvPython) ? getNoConsoleVenvPython(VENV_ROOT) : toNoConsolePython(findSystemPython());
   return applyWindowsNoConsoleSpawnHints({
     kind: "python",
-    label: `Hermes at ${ACTIVE_HERMES_ROOT}`,
+    label: `Zeus at ${ACTIVE_HERMES_ROOT}`,
     command,
     args: ["-m", "hermes_cli.main", ...dashboardArgs],
     env: buildDesktopBackendEnv({
@@ -27525,11 +27525,11 @@ function createActiveBackend(dashboardArgs) {
 function resolveHermesBackend(dashboardArgs) {
   const overrideRoot = process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT);
   if (overrideRoot && isHermesSourceRoot(overrideRoot)) {
-    const backend = createPythonBackend(overrideRoot, `Hermes source at ${overrideRoot}`, dashboardArgs);
+    const backend = createPythonBackend(overrideRoot, `Zeus source at ${overrideRoot}`, dashboardArgs);
     if (backend) return backend;
   }
   if (!IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT)) {
-    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Hermes source at ${SOURCE_REPO_ROOT}`, dashboardArgs);
+    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Zeus source at ${SOURCE_REPO_ROOT}`, dashboardArgs);
     if (backend) return backend;
   }
   if (isBootstrapComplete()) {
@@ -27552,7 +27552,7 @@ function resolveHermesBackend(dashboardArgs) {
     }
     if (hermesCommand) {
       if (looksLikeDesktopAppBinary(hermesCommand)) {
-        rememberLog(`Ignoring desktop app executable on PATH while resolving Hermes CLI: ${hermesCommand}`);
+        rememberLog(`Ignoring desktop app executable on PATH while resolving Zeus CLI: ${hermesCommand}`);
         hermesCommand = null;
       }
     }
@@ -27564,7 +27564,7 @@ function resolveHermesBackend(dashboardArgs) {
       const shellForProbe = isCommandScript(hermesCommand);
       if (verifyHermesCli(hermesCommand, { shell: shellForProbe })) {
         return unwrapWindowsVenvHermesCommand(hermesCommand, dashboardArgs) || {
-          label: `existing Hermes CLI at ${hermesCommand}`,
+          label: `existing Zeus CLI at ${hermesCommand}`,
           command: hermesCommand,
           args: dashboardArgs,
           bootstrap: false,
@@ -27574,7 +27574,7 @@ function resolveHermesBackend(dashboardArgs) {
         };
       }
       rememberLog(
-        `Ignoring existing Hermes CLI at ${hermesCommand}: --version probe failed; falling through to bootstrap.`
+        `Ignoring existing Zeus CLI at ${hermesCommand}: --version probe failed; falling through to bootstrap.`
       );
     }
   }
@@ -27615,10 +27615,10 @@ async function ensureRuntime(backend) {
     return applyWindowsNoConsoleSpawnHints(backend);
   }
   if (backend.kind === "bootstrap-needed") {
-    rememberLog("[bootstrap] no Hermes install found; starting first-launch bootstrap");
+    rememberLog("[bootstrap] no Zeus install found; starting first-launch bootstrap");
     if (await handOffWindowsBootstrapRecovery("bootstrap-needed")) {
       const handoffError = new Error(
-        "Hermes recovery was handed off to Hermes Setup. The desktop will restart when recovery completes."
+        "Zeus recovery was handed off to Zeus Setup. The desktop will restart when recovery completes."
       );
       handoffError.isBootstrapFailure = true;
       handoffError.bootstrapHandedOff = true;
@@ -27655,7 +27655,7 @@ async function ensureRuntime(backend) {
     });
     bootstrapAbortController = null;
     if (bootstrapResult.cancelled) {
-      const cancelledError = new Error("Hermes install was cancelled.");
+      const cancelledError = new Error("Zeus install was cancelled.");
       cancelledError.isBootstrapFailure = true;
       cancelledError.bootstrapCancelled = true;
       bootstrapFailure = cancelledError;
@@ -27663,7 +27663,7 @@ async function ensureRuntime(backend) {
     }
     if (!bootstrapResult.ok) {
       const bootstrapError = new Error(
-        `Hermes bootstrap failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ""}: ${bootstrapResult.error || "unknown error"}. Check ${path.join(HERMES_HOME, "logs", "desktop.log")} for the full transcript.`
+        `Zeus bootstrap failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ""}: ${bootstrapResult.error || "unknown error"}. Check ${path.join(HERMES_HOME, "logs", "desktop.log")} for the full transcript.`
       );
       bootstrapError.isBootstrapFailure = true;
       bootstrapError.failedStage = bootstrapResult.failedStage || null;
@@ -27675,25 +27675,25 @@ async function ensureRuntime(backend) {
   }
   if (!isHermesSourceRoot(ACTIVE_HERMES_ROOT)) {
     throw new Error(
-      `Hermes install at ${ACTIVE_HERMES_ROOT} is missing or incomplete. Reinstall via the desktop installer or scripts/install.ps1.`
+      `Zeus install at ${ACTIVE_HERMES_ROOT} is missing or incomplete. Reinstall via the desktop installer or scripts/install.ps1.`
     );
   }
   if (IS_WINDOWS && !findGitBash()) {
     throw new Error(
-      "Git for Windows is required for Hermes on Windows (provides Git Bash, which the agent's terminal tool uses). Install it from https://git-scm.com/download/win or run `winget install -e --id Git.Git`, then relaunch Hermes."
+      "Git for Windows is required for Zeus on Windows (provides Git Bash, which the agent's terminal tool uses). Install it from https://git-scm.com/download/win or run `winget install -e --id Git.Git`, then relaunch Zeus."
     );
   }
   const venvPython = getVenvPython(VENV_ROOT);
   if (!fileExists(venvPython)) {
     throw new Error(
-      `Hermes venv missing at ${VENV_ROOT}. Re-run the desktop installer or \`scripts/install.ps1\` to rebuild it.`
+      `Zeus venv missing at ${VENV_ROOT}. Re-run the desktop installer or \`scripts/install.ps1\` to rebuild it.`
     );
   }
   backend.command = getNoConsoleVenvPython(VENV_ROOT);
-  backend.label = `Hermes at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`;
+  backend.label = `Zeus at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`;
   updateBootProgress({
     phase: "runtime.ready",
-    message: "Hermes runtime is ready",
+    message: "Zeus runtime is ready",
     progress: 82,
     running: true,
     error: null
@@ -27707,7 +27707,7 @@ function fetchJson(url, token, options = {}) {
     const client = parsed.protocol === "https:" ? https : http;
     const timeoutMs = resolveTimeoutMs(options.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      reject(new Error(`Unsupported Hermes backend URL protocol: ${parsed.protocol}`));
+      reject(new Error(`Unsupported Zeus backend URL protocol: ${parsed.protocol}`));
       return;
     }
     const req = client.request(
@@ -27739,7 +27739,7 @@ function fetchJson(url, token, options = {}) {
           if (looksHtml || contentType.includes("text/html")) {
             reject(
               new Error(
-                `Expected JSON from ${url} but got HTML (status ${res.statusCode}). The endpoint is likely missing on the Hermes backend.`
+                `Expected JSON from ${url} but got HTML (status ${res.statusCode}). The endpoint is likely missing on the Zeus backend.`
               )
             );
             return;
@@ -27754,7 +27754,7 @@ function fetchJson(url, token, options = {}) {
     );
     req.on("error", reject);
     req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error(`Timed out connecting to Hermes backend after ${timeoutMs}ms`));
+      req.destroy(new Error(`Timed out connecting to Zeus backend after ${timeoutMs}ms`));
     });
     if (body) req.write(body);
     req.end();
@@ -27773,7 +27773,7 @@ function fetchPublicJson(url, options = {}) {
     const client = parsed.protocol === "https:" ? https : http;
     const timeoutMs = resolveTimeoutMs(options.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      reject(new Error(`Unsupported Hermes backend URL protocol: ${parsed.protocol}`));
+      reject(new Error(`Unsupported Zeus backend URL protocol: ${parsed.protocol}`));
       return;
     }
     const req = client.request(
@@ -27803,7 +27803,7 @@ function fetchPublicJson(url, options = {}) {
           if (looksHtml || contentType.includes("text/html")) {
             reject(
               new Error(
-                `Expected JSON from ${url} but got HTML (status ${res.statusCode}). The endpoint is likely missing on the Hermes backend.`
+                `Expected JSON from ${url} but got HTML (status ${res.statusCode}). The endpoint is likely missing on the Zeus backend.`
               )
             );
             return;
@@ -27818,7 +27818,7 @@ function fetchPublicJson(url, options = {}) {
     );
     req.on("error", reject);
     req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error(`Timed out connecting to Hermes backend after ${timeoutMs}ms`));
+      req.destroy(new Error(`Timed out connecting to Zeus backend after ${timeoutMs}ms`));
     });
     if (body) req.write(body);
     req.end();
@@ -28233,7 +28233,7 @@ async function waitForHermes(baseUrl, token) {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
-  throw new Error(`Hermes backend did not become ready: ${lastError?.message || "timeout"}`);
+  throw new Error(`Zeus backend did not become ready: ${lastError?.message || "timeout"}`);
 }
 function getWindowButtonPosition() {
   if (!IS_MAC) return null;
@@ -28717,7 +28717,7 @@ function fetchJsonViaOauthSession(url, options = {}) {
       return;
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      reject(new Error(`Unsupported Hermes backend URL protocol: ${parsed.protocol}`));
+      reject(new Error(`Unsupported Zeus backend URL protocol: ${parsed.protocol}`));
       return;
     }
     const body = serializeJsonBody(options.body);
@@ -28737,7 +28737,7 @@ function fetchJsonViaOauthSession(url, options = {}) {
         request.abort();
       } catch {
       }
-      reject(new Error(`Timed out connecting to Hermes backend after ${timeoutMs}ms`));
+      reject(new Error(`Timed out connecting to Zeus backend after ${timeoutMs}ms`));
     }, timeoutMs);
     request.on("response", (res) => {
       const chunks = [];
@@ -28965,7 +28965,7 @@ async function buildRemoteConnection(rawUrl, authMode, token, source) {
   if (authMode === "oauth") {
     if (!await hasLiveOauthSession(baseUrl)) {
       const err = new Error(
-        'Remote Hermes gateway uses OAuth, but you are not signed in. Open Settings \u2192 Gateway and click "Sign in", or switch back to Local.'
+        'Remote Zeus gateway uses OAuth, but you are not signed in. Open Settings \u2192 Gateway and click "Sign in", or switch back to Local.'
       );
       err.needsOauthLogin = true;
       throw err;
@@ -28993,7 +28993,7 @@ async function buildRemoteConnection(rawUrl, authMode, token, source) {
   }
   if (!token) {
     throw new Error(
-      "Remote Hermes gateway is selected, but no session token is saved. Open Settings \u2192 Gateway and save a token, or switch back to Local."
+      "Remote Zeus gateway is selected, but no session token is saved. Open Settings \u2192 Gateway and save a token, or switch back to Local."
     );
   }
   return {
@@ -29017,7 +29017,7 @@ async function resolveRemoteBackend(profile) {
   if (rawEnvUrl) {
     if (!rawEnvToken) {
       throw new Error(
-        "HERMES_DESKTOP_REMOTE_URL is set but HERMES_DESKTOP_REMOTE_TOKEN is not. Both must be provided to connect to a remote Hermes backend."
+        "HERMES_DESKTOP_REMOTE_URL is set but HERMES_DESKTOP_REMOTE_TOKEN is not. Both must be provided to connect to a remote Zeus backend."
       );
     }
     return buildRemoteConnection(rawEnvUrl, "token", rawEnvToken, "env");
@@ -29252,7 +29252,7 @@ async function spawnPoolBackend(profile, entry) {
   const hermesCwd = resolveHermesCwd();
   const webDist = resolveWebDist();
   const readyFile = backend.readyFile ? makeDashboardReadyFile() : null;
-  rememberLog(`Starting Hermes backend for profile "${profile}" via ${backend.label}`);
+  rememberLog(`Starting Zeus backend for profile "${profile}" via ${backend.label}`);
   const child = spawn(
     backend.command,
     backend.args,
@@ -29287,16 +29287,16 @@ async function spawnPoolBackend(profile, entry) {
     rejectStart = reject;
   });
   child.once("error", (error) => {
-    rememberLog(`Hermes backend for profile "${profile}" failed to start: ${error.message}`);
+    rememberLog(`Zeus backend for profile "${profile}" failed to start: ${error.message}`);
     backendPool.delete(profile);
     rejectStart?.(error);
   });
   child.once("exit", (code, signal) => {
-    rememberLog(`Hermes backend for profile "${profile}" exited (${signal || code})`);
+    rememberLog(`Zeus backend for profile "${profile}" exited (${signal || code})`);
     backendPool.delete(profile);
     if (!ready) {
       rejectStart?.(
-        new Error(`Hermes backend for profile "${profile}" exited before it became ready (${signal || code}).`)
+        new Error(`Zeus backend for profile "${profile}" exited before it became ready (${signal || code}).`)
       );
     }
   });
@@ -29311,7 +29311,7 @@ async function spawnPoolBackend(profile, entry) {
   ready = true;
   const authToken = await adoptServedDashboardToken(baseUrl, token, {
     childAlive: () => child.exitCode === null && !child.killed,
-    label: `Hermes backend for profile "${profile}"`,
+    label: `Zeus backend for profile "${profile}"`,
     rememberLog
   });
   entry.token = authToken;
@@ -29399,14 +29399,14 @@ async function startHermes() {
   }
   if (connectionPromise) return connectionPromise;
   connectionPromise = (async () => {
-    await advanceBootProgress("backend.resolve", "Resolving Hermes backend", 8);
+    await advanceBootProgress("backend.resolve", "Resolving Zeus backend", 8);
     const remote = await resolveRemoteBackend(primaryProfileKey());
     if (remote) {
-      await advanceBootProgress("backend.remote", `Connecting to remote Hermes backend at ${remote.baseUrl}`, 24);
+      await advanceBootProgress("backend.remote", `Connecting to remote Zeus backend at ${remote.baseUrl}`, 24);
       await waitForHermes(remote.baseUrl, remote.token);
       updateBootProgress({
         phase: "backend.ready",
-        message: "Remote Hermes backend is ready",
+        message: "Remote Zeus backend is ready",
         progress: 94,
         running: true,
         error: null
@@ -29429,13 +29429,13 @@ async function startHermes() {
     if (activeProfile) {
       dashboardArgs.unshift("--profile", activeProfile);
     }
-    await advanceBootProgress("backend.runtime", "Resolving Hermes runtime", 28);
+    await advanceBootProgress("backend.runtime", "Resolving Zeus runtime", 28);
     const backend = await ensureRuntime(resolveHermesBackend(dashboardArgs));
     const hermesCwd = resolveHermesCwd();
     const webDist = resolveWebDist();
     const readyFile = backend.readyFile ? makeDashboardReadyFile() : null;
-    await advanceBootProgress("backend.spawn", `Starting Hermes backend via ${backend.label}`, 84);
-    rememberLog(`Starting Hermes backend via ${backend.label}`);
+    await advanceBootProgress("backend.spawn", `Starting Zeus backend via ${backend.label}`, 84);
+    rememberLog(`Starting Zeus backend via ${backend.label}`);
     hermesProcess = spawn(
       backend.command,
       backend.args,
@@ -29447,7 +29447,7 @@ async function startHermes() {
           // resolves to the SAME location our resolveHermesHome() picked. Without
           // this pin, Python falls back to ~/.hermes on every platform — fine on
           // mac/linux (where our default matches), but on Windows our default is
-          // %LOCALAPPDATA%\hermes, which differs from C:\Users\<u>\.hermes.
+          // %LOCALAPPDATA%\hermes, which differs from C:\Users\<u>\.Zeus.
           // Mismatch would split config / sessions / .env / logs across two
           // directories. install.ps1 sets HERMES_HOME via setx; the desktop
           // can't reliably do that, so we set it inline for every spawn.
@@ -29479,11 +29479,11 @@ async function startHermes() {
       rejectBackendStart = reject;
     });
     hermesProcess.once("error", (error) => {
-      rememberLog(`Hermes backend failed to start: ${error.message}`);
+      rememberLog(`Zeus backend failed to start: ${error.message}`);
       updateBootProgress(
         {
           error: error.message,
-          message: `Hermes backend failed to start: ${error.message}`,
+          message: `Zeus backend failed to start: ${error.message}`,
           phase: "backend.error",
           running: false
         },
@@ -29495,12 +29495,12 @@ async function startHermes() {
       rejectBackendStart?.(error);
     });
     hermesProcess.once("exit", (code, signal) => {
-      rememberLog(`Hermes backend exited (${signal || code})`);
+      rememberLog(`Zeus backend exited (${signal || code})`);
       hermesProcess = null;
       connectionPromise = null;
       sendBackendExit({ code, signal });
       if (!backendReady) {
-        const message = `Hermes backend exited before it became ready (${signal || code}).`;
+        const message = `Zeus backend exited before it became ready (${signal || code}).`;
         updateBootProgress(
           {
             error: message,
@@ -29512,13 +29512,13 @@ async function startHermes() {
         );
         rejectBackendStart?.(
           new Error(
-            `Hermes backend exited before it became ready (${signal || code}). Log: ${DESKTOP_LOG_PATH}
+            `Zeus backend exited before it became ready (${signal || code}). Log: ${DESKTOP_LOG_PATH}
 ${recentHermesLog()}`
           )
         );
       }
     });
-    await advanceBootProgress("backend.port", "Waiting for Hermes backend to launch", 86);
+    await advanceBootProgress("backend.port", "Waiting for Zeus backend to launch", 86);
     const port = await Promise.race([
       waitForDashboardPortAnnouncement(hermesProcess, { readyFile }),
       backendStartFailed
@@ -29528,7 +29528,7 @@ ${recentHermesLog()}`
       });
     }
     const baseUrl = `http://127.0.0.1:${port}`;
-    await advanceBootProgress("backend.wait", "Waiting for Hermes backend to become ready", 90);
+    await advanceBootProgress("backend.wait", "Waiting for Zeus backend to become ready", 90);
     await Promise.race([waitForHermes(baseUrl, token), backendStartFailed]);
     backendReady = true;
     backendStartFailure = null;
@@ -29539,7 +29539,7 @@ ${recentHermesLog()}`
     });
     updateBootProgress({
       phase: "backend.ready",
-      message: "Hermes backend is ready. Finalizing desktop startup",
+      message: "Zeus backend is ready. Finalizing desktop startup",
       progress: 94,
       running: true,
       error: null
@@ -29779,7 +29779,7 @@ ipcMain.handle("hermes:connection:revalidate", async () => {
     await fetchPublicJson(`${base}/api/status`, { timeoutMs: 2500 });
     return { ok: true, rebuilt: false };
   } catch {
-    rememberLog("Cached remote Hermes backend failed liveness probe; dropping stale connection.");
+    rememberLog("Cached remote Zeus backend failed liveness probe; dropping stale connection.");
     resetHermesConnection();
     return { ok: true, rebuilt: true };
   }
@@ -30038,7 +30038,7 @@ ipcMain.handle("hermes:notify", (_event, payload) => {
   if (!Notification.isSupported()) return false;
   const actions = Array.isArray(payload?.actions) ? payload.actions : [];
   const notification = new Notification({
-    title: payload?.title || "Hermes",
+    title: payload?.title || "Zeus",
     body: payload?.body || "",
     silent: Boolean(payload?.silent),
     actions: actions.map((action) => ({ type: "button", text: String(action?.text || "") }))
@@ -30317,7 +30317,7 @@ function terminalShellEnv() {
   env22.COLORTERM = "truecolor";
   env22.LC_CTYPE = env22.LC_CTYPE || "UTF-8";
   env22.TERM = "xterm-256color";
-  env22.TERM_PROGRAM = "Hermes";
+  env22.TERM_PROGRAM = "Zeus";
   env22.TERM_PROGRAM_VERSION = app.getVersion();
   env22.HERMES_DESKTOP_TERMINAL = "1";
   return env22;
@@ -30457,7 +30457,7 @@ ipcMain.handle("hermes:git:scanRepos", async (_event, roots, options) => {
 });
 ipcMain.handle("hermes:terminal:start", async (event, payload = {}) => {
   if (!nodePty) {
-    throw new Error("PTY support is unavailable. Reinstall desktop dependencies and restart Hermes.");
+    throw new Error("PTY support is unavailable. Reinstall desktop dependencies and Restart Zeus.");
   }
   ensureSpawnHelperExecutable();
   const id = crypto.randomUUID();

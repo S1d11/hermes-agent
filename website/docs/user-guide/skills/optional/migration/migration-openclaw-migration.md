@@ -8,7 +8,7 @@ description: "Migrate a user's OpenClaw customization footprint into Zeus"
 
 # Openclaw Migration
 
-Migrate a user's OpenClaw customization footprint into Zeus. Imports Hermes-compatible memories, SOUL.md, command allowlists, user skills, and selected workspace assets from ~/.openclaw, then reports exactly what could not be migrated and why.
+Migrate a user's OpenClaw customization footprint into Zeus. Imports Zeus-compatible memories, SOUL.md, command allowlists, user skills, and selected workspace assets from ~/.openclaw, then reports exactly what could not be migrated and why.
 
 ## Skill metadata
 
@@ -20,16 +20,16 @@ Migrate a user's OpenClaw customization footprint into Zeus. Imports Hermes-comp
 | Author | Zeus (Nous Research) |
 | License | MIT |
 | Platforms | linux, macos, windows |
-| Tags | `Migration`, `OpenClaw`, `Hermes`, `Memory`, `Persona`, `Import` |
+| Tags | `Migration`, `OpenClaw`, `Zeus`, `Memory`, `Persona`, `Import` |
 | Related skills | [`hermes-agent`](/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent) |
 
 ## Reference: full SKILL.md
 
 :::info
-The following is the complete skill definition that Hermes loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
+The following is the complete skill definition that Zeus loads when this skill is triggered. This is what the agent sees as instructions when the skill is active.
 :::
 
-# OpenClaw -> Hermes Migration
+# OpenClaw -> Zeus Migration
 
 Use this skill when a user wants to move their OpenClaw setup into Zeus with minimal manual cleanup.
 
@@ -53,14 +53,14 @@ The CLI command runs the same migration script described below. Use this skill (
 
 It uses `scripts/openclaw_to_hermes.py` to:
 
-- import `SOUL.md` into the Hermes home directory as `SOUL.md`
-- transform OpenClaw `MEMORY.md` and `USER.md` into Hermes memory entries
-- merge OpenClaw command approval patterns into Hermes `command_allowlist`
-- migrate Hermes-compatible messaging settings such as `TELEGRAM_ALLOWED_USERS`, and map OpenClaw workspace settings to Hermes working-directory configuration
+- import `SOUL.md` into the Zeus home directory as `SOUL.md`
+- transform OpenClaw `MEMORY.md` and `USER.md` into Zeus memory entries
+- merge OpenClaw command approval patterns into Zeus `command_allowlist`
+- migrate Zeus-compatible messaging settings such as `TELEGRAM_ALLOWED_USERS`, and map OpenClaw workspace settings to Zeus working-directory configuration
 - copy OpenClaw skills into `~/.hermes/skills/openclaw-imports/`
-- optionally copy the OpenClaw workspace instructions file into a chosen Hermes workspace
+- optionally copy the OpenClaw workspace instructions file into a chosen Zeus workspace
 - mirror compatible workspace assets such as `workspace/tts/` into `~/.hermes/tts/`
-- archive non-secret docs that do not have a direct Hermes destination
+- archive non-secret docs that do not have a direct Zeus destination
 - produce a structured report listing migrated items, conflicts, skipped items, and reasons
 
 ## Path resolution
@@ -82,7 +82,7 @@ Before running the helper:
 3. Only use `find` as a fallback if the installed location is missing or the skill was moved manually.
 4. When calling the terminal tool, do not pass `workdir: "~"`. Use an absolute directory such as the user's home directory, or omit `workdir` entirely.
 
-With `--migrate-secrets`, it will also import a small allowlisted set of Hermes-compatible secrets, currently:
+With `--migrate-secrets`, it will also import a small allowlisted set of Zeus-compatible secrets, currently:
 
 - `TELEGRAM_BOT_TOKEN`
 
@@ -102,7 +102,7 @@ With `--migrate-secrets`, it will also import a small allowlisted set of Hermes-
 
 ## User interaction protocol
 
-Hermes CLI supports the `clarify` tool for interactive prompts, but it is limited to:
+Zeus CLI supports the `clarify` tool for interactive prompts, but it is limited to:
 
 - one choice at a time
 - up to 4 predefined choices
@@ -177,9 +177,9 @@ Execution gate:
 Use these exact `clarify` payload shapes as the default pattern:
 
 - `{"question":"Your existing SOUL.md conflicts with the imported one. What should I do?","choices":["keep existing","overwrite with backup","review first"]}`
-- `{"question":"One or more imported OpenClaw skills already exist in Hermes. How should I handle those skill conflicts?","choices":["keep existing skills","overwrite conflicting skills with backup","import conflicting skills under renamed folders"]}`
+- `{"question":"One or more imported OpenClaw skills already exist in Zeus. How should I handle those skill conflicts?","choices":["keep existing skills","overwrite conflicting skills with backup","import conflicting skills under renamed folders"]}`
 - `{"question":"Choose migration mode: migrate only user data, or run the full compatible migration including allowlisted secrets?","choices":["user-data only","full compatible migration","cancel"]}`
-- `{"question":"Do you want to copy the OpenClaw workspace instructions file into a Hermes workspace?","choices":["skip workspace instructions","copy to a workspace path","decide later"]}`
+- `{"question":"Do you want to copy the OpenClaw workspace instructions file into a Zeus workspace?","choices":["skip workspace instructions","copy to a workspace path","decide later"]}`
 - `{"question":"Please provide an absolute path where the workspace instructions should be copied."}`
 
 ## Decision-to-command mapping
@@ -215,7 +215,7 @@ After execution, treat the script's JSON output as the source of truth.
 10. If `report.skill_conflict_mode` is present, use it as the source of truth for the selected imported-skill conflict policy.
 11. If an item has `status="skipped"`, do not describe it as overwritten, backed up, migrated, or resolved.
 12. If `kind="soul"` has `status="skipped"` with reason `Target already matches source`, say it was left unchanged and do not mention a backup.
-13. If a renamed imported skill has an empty `details.backup`, do not imply the existing Hermes skill was renamed or backed up. Say only that the imported copy was placed in the new destination and reference `details.renamed_from` as the pre-existing folder that remained in place.
+13. If a renamed imported skill has an empty `details.backup`, do not imply the existing Zeus skill was renamed or backed up. Say only that the imported copy was placed in the new destination and reference `details.renamed_from` as the pre-existing folder that remained in place.
 
 ## Migration presets
 
@@ -285,11 +285,11 @@ Do not use `$PWD` or the home directory as the workspace target by default. Ask 
 ## Important rules
 
 1. Run a dry run before writing unless the user explicitly says to proceed immediately.
-2. Do not migrate secrets by default. Tokens, auth blobs, device credentials, and raw gateway config should stay out of Hermes unless the user explicitly asks for secret migration.
-3. Do not silently overwrite non-empty Hermes targets unless the user explicitly wants that. The helper script will preserve backups when overwriting is enabled.
+2. Do not migrate secrets by default. Tokens, auth blobs, device credentials, and raw gateway config should stay out of Zeus unless the user explicitly asks for secret migration.
+3. Do not silently overwrite non-empty Zeus targets unless the user explicitly wants that. The helper script will preserve backups when overwriting is enabled.
 4. Always give the user the skipped-items report. That report is part of the migration, not an optional extra.
 5. Prefer the primary OpenClaw workspace (`~/.openclaw/workspace/`) over `workspace.default/`. Only use the default workspace as fallback when the primary files are missing.
-6. Even in secret-migration mode, only migrate secrets with a clean Hermes destination. Unsupported auth blobs must still be reported as skipped.
+6. Even in secret-migration mode, only migrate secrets with a clean Zeus destination. Unsupported auth blobs must still be reported as skipped.
 7. If the dry run shows a large asset copy, a conflicting `SOUL.md`, or overflowed memory entries, call those out separately before execution.
 8. Default to `user-data only` if the user is unsure.
 9. Only include `workspace-agents` when the user has explicitly provided a destination workspace path.
@@ -310,7 +310,7 @@ Do not use `$PWD` or the home directory as the workspace target by default. Ask 
 
 After a successful run, the user should have:
 
-- Hermes persona state imported
-- Hermes memory files populated with converted OpenClaw knowledge
+- Zeus persona state imported
+- Zeus memory files populated with converted OpenClaw knowledge
 - OpenClaw skills available under `~/.hermes/skills/openclaw-imports/`
 - a migration report showing any conflicts, omissions, or unsupported data
