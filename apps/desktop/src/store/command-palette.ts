@@ -3,14 +3,14 @@ import { atom } from 'nanostores'
 /** Whether the global command palette (Cmd/Ctrl+K) is currently open. */
 export const $commandPaletteOpen = atom(false)
 
-/** Optional nested page to open when the palette next opens (e.g. `pets`). */
+/** Optional nested page to open when the palette next opens (e.g. `theme`). */
 export const $commandPalettePage = atom<string | null>(null)
 
 export function openCommandPalette(): void {
   $commandPaletteOpen.set(true)
 }
 
-/** Open the palette directly on a nested page (`theme`, `pets`, …). */
+/** Open the palette directly on a nested page (`theme`, …). */
 export function openCommandPalettePage(page: string): void {
   $commandPalettePage.set(page)
   $commandPaletteOpen.set(true)

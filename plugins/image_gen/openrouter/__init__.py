@@ -13,8 +13,8 @@ agent's existing :func:`~hermes_cli.runtime_provider.resolve_runtime_provider`,
 which already understands OpenRouter's key pool and the Nous OAuth device-code
 token, so this plugin never reinvents auth.
 
-Reference grounding is the reason pet sprite generation cares about this
-backend: each animation row must stay the same character as the chosen base
+Reference grounding is the reason image-to-image generation cares about this
+backend: each generated row must stay consistent with the chosen base
 frame, which only works on models that accept image input. Gemini Flash Image
 ("nano-banana") does, so both providers advertise image-to-image support.
 """
@@ -217,7 +217,7 @@ class OpenRouterCompatImageProvider(ImageGenProvider):
 
     def capabilities(self) -> Dict[str, Any]:
         # Both text-to-image and image-to-image (reference grounding) — the
-        # latter is what makes this backend usable for pet sprite rows.
+        # latter is what makes this backend usable for grounded image rows.
         return {
             "modalities": ["text", "image"],
             "max_reference_images": _MAX_REFERENCE_IMAGES,
@@ -301,7 +301,7 @@ class OpenRouterCompatImageProvider(ImageGenProvider):
         aspect = resolve_aspect_ratio(aspect_ratio)
         or_aspect = _ASPECT_RATIOS.get(aspect, "1:1")
 
-        # Collect every reference: the pet generator passes local paths via the
+        # Collect every reference: callers pass local paths via the
         # ``reference_images`` kwarg; the generic tool surface uses ``image_url``
         # / ``reference_image_urls``. Accept all three.
         references: List[str] = []

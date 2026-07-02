@@ -34,7 +34,6 @@ import { $gateway } from '@/store/gateway'
 import { dispatchNativeNotification } from '@/store/native-notifications'
 import { notify } from '@/store/notifications'
 import { requestDesktopOnboarding } from '@/store/onboarding'
-import { flashPetActivity, markPetUnread, setPetActivity } from '@/store/pet'
 import { followActiveSessionCwd } from '@/store/projects'
 import { clearAllPrompts, setApprovalRequest, setSecretRequest, setSudoRequest } from '@/store/prompts'
 import {
@@ -893,7 +892,6 @@ export function useMessageStream({
         }
 
         if (isActiveEvent) {
-          setPetActivity({ reasoning: true })
         }
       } else if (event.type === 'reasoning.available') {
         if (sessionId) {
@@ -901,7 +899,6 @@ export function useMessageStream({
         }
 
         if (isActiveEvent) {
-          setPetActivity({ reasoning: true })
         }
       } else if (event.type === 'moa.reference') {
         // MoA reference-model output — surface as a labelled thinking chunk
@@ -918,13 +915,11 @@ export function useMessageStream({
         }
 
         if (isActiveEvent) {
-          setPetActivity({ reasoning: true })
         }
       } else if (event.type === 'moa.aggregating') {
         // Status transition only; the aggregator's reply arrives via the normal
         // message stream. No reasoning/transcript mutation here.
         if (isActiveEvent) {
-          setPetActivity({ reasoning: true })
         }
       } else if (event.type === 'message.complete') {
         if (!sessionId) {
@@ -948,20 +943,6 @@ export function useMessageStream({
 
         if (isActiveEvent) {
           setTurnStartedAt(null)
-
-          // Pet beat: a finished turn always celebrates — go straight to the
-          // jump, never linger on the run/reason pose. One atom update (clears
-          // toolRunning/reasoning AND sets celebrate together) so no stray "run"
-          // frame leaks to the sprite — including the popped-out overlay, which
-          // mirrors each activity change. The jump runs ~2 loops, then settles.
-          flashPetActivity({ celebrate: true, reasoning: false, toolRunning: false }, 2200)
-
-          // Light up the pet's mail icon if the user wasn't looking when the turn
-          // finished — a glanceable "new message" hint on the popped-out overlay.
-          // Cleared when they open the app via the mail icon or refocus the window.
-          if (typeof document !== 'undefined' && !document.hasFocus()) {
-            markPetUnread()
-          }
         }
 
         if (payload?.usage) {
@@ -986,16 +967,11 @@ export function useMessageStream({
         upsertToolCall(sessionId, toTodoPayload(payload) ?? payload, 'running', event.type)
 
         if (isActiveEvent) {
-          setPetActivity({ reasoning: false, toolRunning: true })
         }
       } else if (event.type === 'tool.complete') {
         if (sessionId) {
           flushQueuedDeltas(sessionId)
           upsertToolCall(sessionId, toTodoPayload(payload) ?? payload, 'complete', event.type)
-
-          if (isActiveEvent) {
-            setPetActivity({ toolRunning: false })
-          }
 
           // A pending clarify blocks the turn, so the first tool.complete after
           // one is the clarify resolving — drop the "needs input" flag here so
@@ -1215,8 +1191,6 @@ export function useMessageStream({
         }
 
         if (isActiveEvent) {
-          setPetActivity({ reasoning: false, toolRunning: false })
-          flashPetActivity({ error: true })
         }
 
         dispatchNativeNotification({

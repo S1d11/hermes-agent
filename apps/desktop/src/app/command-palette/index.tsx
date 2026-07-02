@@ -20,7 +20,6 @@ import {
   Clock,
   Cpu,
   Download,
-  Egg,
   GitBranch,
   Globe,
   type IconComponent,
@@ -31,7 +30,6 @@ import {
   Moon,
   Package,
   Palette,
-  PawPrint,
   Plug,
   Plus,
   RefreshCw,
@@ -52,7 +50,6 @@ import {
   setCommandPaletteOpen
 } from '@/store/command-palette'
 import { $bindings } from '@/store/keybinds'
-import { openPetGenerate } from '@/store/pet-generate'
 import { requestStartWorkSession } from '@/store/projects'
 import { runGatewayRestart } from '@/store/system-actions'
 import { luminance } from '@/themes/color'
@@ -77,7 +74,6 @@ import { fieldCopyForSchemaKey } from '../settings/field-copy'
 import { prettyName } from '../settings/helpers'
 
 import { MarketplaceThemePage } from './marketplace-theme-page'
-import { PetInlineToggle, PetPalettePage } from './pet-palette-page'
 
 interface PaletteItem {
   /** Keybind action id — its live combo renders as a hotkey hint. */
@@ -269,7 +265,7 @@ export function CommandPalette() {
     }
   }, [open])
 
-  // Deep-link into a nested page (e.g. `/pet list` → pets picker).
+  // Deep-link into a nested page.
   useEffect(() => {
     if (open && pendingPage) {
       setPage(pendingPage)
@@ -449,20 +445,6 @@ export function CommandPalette() {
             keywords: ['appearance', 'color mode', 'brightness', 'dark', 'light', 'system'],
             label: cc.changeColorMode,
             to: 'color-mode'
-          },
-          {
-            icon: PawPrint,
-            id: 'appearance-pets',
-            keywords: ['pet', 'petdex', 'mascot', 'pets', '/pet', 'paw'],
-            label: cc.pets.title,
-            to: 'pets'
-          },
-          {
-            icon: Egg,
-            id: 'appearance-generate-pet',
-            keywords: ['pet', 'generate', 'create', 'make', 'new pet', 'mascot', 'hatch', 'ai'],
-            label: cc.generatePet.title,
-            run: () => openPetGenerate()
           }
         ]
       },
@@ -631,12 +613,6 @@ export function CommandPalette() {
           }
         ]
       },
-      // Server-driven page: browse petdex gallery, adopt/switch, toggle off.
-      pets: {
-        title: t.commandCenter.pets.title,
-        placeholder: t.commandCenter.pets.placeholder,
-        groups: []
-      },
       // Server-driven page: items come from the Marketplace, rendered by
       // <MarketplaceThemePage> (loader + live search + per-row install).
       'install-theme': {
@@ -713,20 +689,12 @@ export function CommandPalette() {
               }}
               onValueChange={setSearch}
               placeholder={placeholder}
-              right={page === 'pets' ? <PetInlineToggle /> : undefined}
+              right={undefined}
               value={search}
             />
             <CommandList className="dt-portal-scrollbar max-h-[min(20rem,56vh)]">
               {/* Server-driven pages render their own list; the rest show groups. */}
-              {page === 'pets' ? (
-                <PetPalettePage
-                  onGenerate={() => {
-                    closeCommandPalette()
-                    openPetGenerate()
-                  }}
-                  search={search}
-                />
-              ) : page === 'install-theme' ? (
+              {page === 'install-theme' ? (
                 <MarketplaceThemePage onPickTheme={setTheme} search={search} />
               ) : (
                 <>
