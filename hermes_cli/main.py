@@ -300,6 +300,7 @@ from hermes_cli.subcommands.pairing import build_pairing_parser
 from hermes_cli.subcommands.plugins import build_plugins_parser
 from hermes_cli.subcommands.mcp import build_mcp_parser
 from hermes_cli.subcommands.claw import build_claw_parser
+from hermes_cli.subcommands.evolve import build_evolve_parser
 
 
 def _require_tty(command_name: str) -> None:
@@ -11661,7 +11662,7 @@ _BUILTIN_SUBCOMMANDS = frozenset(
     {
         "acp", "auth", "backup", "bundles", "checkpoints", "claw", "completion",
         "computer-use",
-        "config", "cron", "curator", "dashboard", "debug", "doctor",
+        "config", "cron", "curator", "dashboard", "debug", "doctor", "evolve",
         "dump", "fallback", "gateway", "hooks", "import", "insights",
         "gui", "desktop", "kanban", "login", "logout", "logs", "lsp", "mcp", "memory", "migrate", "moa",
         "model", "pairing", "pets", "plugins", "portal", "postinstall", "profile",
@@ -12098,6 +12099,12 @@ def cmd_insights(args):
         db.close()
     except Exception as e:
         print(f"Error generating insights: {e}")
+
+
+def cmd_evolve(args):
+    from hermes_cli.evolve_cmd import evolve_command
+
+    evolve_command(args)
 
 
 def cmd_skills(args):
@@ -13158,6 +13165,11 @@ def main():
     # insights command  (parser built in hermes_cli/subcommands/insights.py)
     # =========================================================================
     build_insights_parser(subparsers, cmd_insights=cmd_insights)
+
+    # =========================================================================
+    # evolve command  (parser built in hermes_cli/subcommands/evolve.py)
+    # =========================================================================
+    build_evolve_parser(subparsers, cmd_evolve=cmd_evolve)
 
     # =========================================================================
     # claw command  (parser built in hermes_cli/subcommands/claw.py)
