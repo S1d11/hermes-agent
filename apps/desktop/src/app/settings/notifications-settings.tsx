@@ -81,8 +81,6 @@ export function NotificationsSettings() {
         recommendation={copy.enableAllRec}
       />
 
-      <div className="my-1 h-px bg-border/30" />
-
       {NATIVE_NOTIFICATION_KINDS.map(kind => (
         <ToggleRow
           checked={prefs.enabled && prefs.kinds[kind]}
@@ -94,8 +92,6 @@ export function NotificationsSettings() {
           recommendation={copy.kinds[kind].rec}
         />
       ))}
-
-      <div className="my-1 h-px bg-border/30" />
 
       <ListRow
         action={

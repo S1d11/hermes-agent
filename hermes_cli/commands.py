@@ -1,4 +1,4 @@
-"""Slash command definitions and autocomplete for the Zeus CLI.
+"""Slash command definitions and autocomplete for the Hermes CLI.
 
 Central registry for all slash commands. Every consumer -- CLI help, gateway
 dispatch, Telegram BotCommands, Slack subcommand mapping, autocomplete --
@@ -88,26 +88,30 @@ COMMAND_REGISTRY: list[CommandDef] = [
                args_hint="<platform>", cli_only=True),
     CommandDef("branch", "Branch the current session (explore a different path)", "Session",
                aliases=("fork",), args_hint="[name]"),
-    CommandDef("compress", "Compress conversation context (add 'here [N]' to keep recent N turns)", "Session",
-               args_hint="[here [N] | focus topic]"),
+    CommandDef("compress", "Compress conversation context (add 'here [N]' to keep recent N turns; --preview shows what would happen)", "Session",
+               aliases=("compact",), args_hint="[here [N] | focus topic | --preview|--dry-run]"),
     CommandDef("rollback", "List or restore filesystem checkpoints", "Session",
                args_hint="[number]"),
-    CommandDef("snapshot", "Create or restore state snapshots of Zeus config/state", "Session",
+    CommandDef("snapshot", "Create or restore state snapshots of Hermes config/state", "Session",
                cli_only=True, aliases=("snap",), args_hint="[create|restore <id>|prune]"),
     CommandDef("stop", "Kill all running background processes", "Session"),
     CommandDef("approve", "Approve a pending dangerous command", "Session",
                gateway_only=True, args_hint="[session|always]"),
-    CommandDef("deny", "Deny a pending dangerous command", "Session",
-               gateway_only=True),
+    CommandDef("deny", "Deny a pending dangerous command (optionally with a reason)", "Session",
+               gateway_only=True, args_hint="[all] [reason]"),
     CommandDef("background", "Run a prompt in the background", "Session",
                aliases=("bg", "btw"), args_hint="<prompt>"),
     CommandDef("agents", "Show active agents and running tasks", "Session",
                aliases=("tasks",)),
+    CommandDef("journey", "Open the learning journey timeline",
+               "Session", aliases=("learning", "memory-graph"), cli_only=True,
+               args_hint="[list|delete <id>|edit <id>]",
+               subcommands=("list", "delete", "edit")),
     CommandDef("queue", "Queue a prompt for the next turn (doesn't interrupt)", "Session",
                aliases=("q",), args_hint="<prompt>"),
     CommandDef("steer", "Inject a message after the next tool call without interrupting", "Session",
                args_hint="<prompt>"),
-    CommandDef("goal", "Set a standing goal Zeus works on across turns until achieved", "Session",
+    CommandDef("goal", "Set a standing goal Hermes works on across turns until achieved", "Session",
                args_hint="[text | draft <text> | show | pause | resume | clear | status | wait <pid> | unwait]"),
     CommandDef("moa", "Run one prompt through the default Mixture of Agents preset, then restore your model", "Session",
                args_hint="<prompt>"),
@@ -140,7 +144,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("timestamps", "Toggle [HH:MM] timestamps on messages and /history", "Configuration",
                cli_only=True, args_hint="[on|off|status]",
                subcommands=("on", "off", "status"), aliases=("ts",)),
-    CommandDef("verbose", "Cycle tool progress display: off -> new -> all -> verbose",
+    CommandDef("verbose", "Cycle tool progress display: off -> new -> all -> verbose -> log",
                "Configuration", cli_only=True,
                gateway_config_gate="display.tool_progress_command"),
     CommandDef("footer", "Toggle gateway runtime-metadata footer on final replies",
@@ -161,7 +165,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
                subcommands=("kaomoji", "emoji", "unicode", "ascii")),
     CommandDef("voice", "Toggle voice mode", "Configuration",
                args_hint="[on|off|tts|status]", subcommands=("on", "off", "tts", "status")),
-    CommandDef("busy", "Control what Enter does while Zeus is working", "Configuration",
+    CommandDef("busy", "Control what Enter does while Hermes is working", "Configuration",
                cli_only=True, args_hint="[queue|steer|interrupt|status]",
                subcommands=("queue", "steer", "interrupt", "status")),
 
@@ -181,6 +185,10 @@ COMMAND_REGISTRY: list[CommandDef] = [
                subcommands=("pending", "approve", "reject", "approval")),
     CommandDef("bundles", "List skill bundles (aliases /<name> for multiple skills)",
                "Tools & Skills"),
+    CommandDef("pet", "Toggle or adopt a petdex mascot (/pet, /pet list, /pet <slug>)", "Tools & Skills",
+               cli_only=True, args_hint="[toggle|list|scale <n>|<slug>]", subcommands=("toggle", "list", "scale", "off")),
+    CommandDef("hatch", "Generate a new petdex pet from a description",
+               "Tools & Skills", cli_only=True, aliases=("generate-pet",), args_hint="[description]"),
     CommandDef("learn", "Learn a reusable skill from anything you describe (dirs, URLs, this chat, notes)",
                "Tools & Skills", args_hint="<what to learn from>"),
     CommandDef("cron", "Manage scheduled tasks", "Tools & Skills",
@@ -236,9 +244,10 @@ COMMAND_REGISTRY: list[CommandDef] = [
                cli_only=True),
     CommandDef("image", "Attach a local image file for your next prompt", "Info",
                cli_only=True, args_hint="<path>"),
-    CommandDef("update", "Update Zeus to the latest version", "Info"),
-    CommandDef("version", "Show Zeus version", "Info", aliases=("v",)),
-    CommandDef("debug", "Upload debug report (system info + logs) and get shareable links", "Info"),
+    CommandDef("update", "Update Hermes Agent to the latest version", "Info"),
+    CommandDef("version", "Show Hermes Agent version", "Info", aliases=("v",)),
+    CommandDef("debug", "Upload debug report (system info + logs) and get shareable links", "Info",
+               args_hint="[nous|local]"),
 
     # Exit
     CommandDef("quit", "Exit the CLI (use --delete to also remove session history)", "Exit",
@@ -1195,7 +1204,7 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
     seen: set[str] = set()
 
     # Reserve /hermes as the catch-all top-level command.
-    entries.append(("hermes", "Talk to Zeus or run a subcommand", "[subcommand] [args]"))
+    entries.append(("hermes", "Talk to Hermes or run a subcommand", "[subcommand] [args]"))
     seen.add("hermes")
 
     def _add(name: str, desc: str, hint: str) -> None:
@@ -1345,6 +1354,77 @@ class SlashCommandCompleter(Completer):
             return self._skill_bundles_provider() or {}
         except Exception:
             return {}
+
+    # -- stacked slash-skill completion helpers ---------------------------
+
+    @staticmethod
+    def _normalize_skill_token(token: str) -> str:
+        """Canonicalize a typed skill token to its hyphenated /slug form.
+
+        Mirrors resolve_skill_command_key() in agent/skill_commands.py:
+        underscores (Telegram bot-command form) are interchangeable with
+        hyphens.
+        """
+        return "/" + token.lstrip("/").replace("_", "-").lower()
+
+    def _is_skill_command(self, token: str) -> bool:
+        return self._normalize_skill_token(token) in self._iter_skill_commands()
+
+    def _stacked_skill_completions(self, text: str):
+        """Offer skill-command completions for stacked invocations.
+
+        After ``/skill-a `` the user may chain more leading skills
+        (``/skill-a /skill-b do XYZ``). While every whitespace-delimited
+        token so far resolves to a distinct skill command and the current
+        word under the cursor starts with ``/``, keep offering the remaining
+        skill commands. The moment the chain is broken (a non-skill token
+        appears, the cap is reached, or the user is typing plain instruction
+        text) we offer nothing — instruction text must never be polluted
+        with skill suggestions.
+        """
+        try:
+            from agent.skill_commands import _MAX_STACKED_SKILLS as _cap
+        except Exception:
+            _cap = 5
+
+        tokens = text.split()
+        if text.endswith(" "):
+            completed, current_word = tokens, ""
+        else:
+            completed, current_word = tokens[:-1], tokens[-1]
+
+        # The chain must be unbroken: every completed token is a distinct
+        # skill command, and there's room left under the cap.
+        seen: set[str] = set()
+        for token in completed:
+            key = self._normalize_skill_token(token)
+            if key not in self._iter_skill_commands() or key in seen:
+                return
+            seen.add(key)
+        if len(seen) >= _cap:
+            return
+
+        # Only suggest while the user is typing another /token — a bare
+        # space after the chain means they may be starting the instruction.
+        if not current_word.startswith("/"):
+            return
+
+        word_key = self._normalize_skill_token(current_word)
+        for cmd, info in self._iter_skill_commands().items():
+            if cmd in seen or not cmd.startswith(word_key):
+                continue
+            description = str(info.get("description", "Skill command"))
+            short_desc = description[:50] + ("..." if len(description) > 50 else "")
+            # Exact match: append a trailing space so the dropdown stays
+            # visible and the next stacked token can be typed immediately
+            # (mirrors _completion_text semantics).
+            replacement = f"{cmd} " if cmd == word_key else cmd
+            yield Completion(
+                replacement,
+                start_position=-len(current_word),
+                display=cmd,
+                display_meta=f"⚡ {short_desc}",
+            )
 
     # Commands that open pickers when run without arguments.
     # These should NOT receive a trailing space in completions because:
@@ -1880,6 +1960,15 @@ class SlashCommandCompleter(Completer):
             sub_text = parts[1] if len(parts) > 1 else ""
             sub_lower = sub_text.lower()
 
+            # Stacked slash-skill invocations: after `/skill-a ` the user may
+            # chain more skills (`/skill-a /skill-b …`), so keep offering
+            # skill-command completions while the leading-skill chain is
+            # unbroken (see split_stacked_skill_commands in
+            # agent/skill_commands.py).
+            if self._is_skill_command(base_cmd):
+                yield from self._stacked_skill_completions(text)
+                return
+
             # Dynamic completions for commands with runtime lists
             if " " not in sub_text:
                 if base_cmd == "/skin":
@@ -2013,6 +2102,20 @@ class SlashCommandAutoSuggest(AutoSuggest):
         # Command is complete — suggest subcommands
         sub_text = parts[1] if len(parts) > 1 else ""
         sub_lower = sub_text.lower()
+
+        # Stacked slash-skill invocations: while the leading tokens form an
+        # unbroken skill chain and the user is typing another /token,
+        # ghost-suggest the rest of the next skill name. Otherwise fall
+        # through to the history fallback for instruction text.
+        if (
+            self._completer is not None
+            and self._completer._is_skill_command(base_cmd)
+        ):
+            for completion in self._completer._stacked_skill_completions(text):
+                remainder = completion.text[-completion.start_position:] \
+                    if completion.start_position else completion.text
+                if remainder.strip():
+                    return Suggestion(remainder)
 
         # Static subcommands
         if self._completer is not None and not self._completer._command_allowed(base_cmd):

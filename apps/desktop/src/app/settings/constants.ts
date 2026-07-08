@@ -1,5 +1,16 @@
-import { codiconIcon } from '@/components/ui/codicon'
-import { Brain, type IconComponent, Lock, MessageCircle, Mic, Monitor, Moon, Palette, Sun, Wrench } from '@/lib/icons'
+import {
+  Box,
+  Brain,
+  type IconComponent,
+  Lock,
+  MessageCircle,
+  Mic,
+  Monitor,
+  Moon,
+  Palette,
+  Sun,
+  Wrench
+} from '@/lib/icons'
 import type { ThemeMode } from '@/themes/context'
 
 import { defineFieldCopy } from './field-copy'
@@ -30,7 +41,7 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'NOUS_',
     name: 'Nous Portal',
-    description: 'Hosted Zeus & Nous-trained models',
+    description: 'Hosted Hermes & Nous-trained models',
     docsUrl: 'https://portal.nousresearch.com',
     priority: 0
   },
@@ -426,6 +437,7 @@ export const FIELD_LABELS: Record<string, string> = defineFieldCopy({
   },
   stt: {
     enabled: 'Speech To Text',
+    echoTranscripts: 'Echo Transcripts',
     provider: 'Speech-To-Text Provider',
     local: {
       model: 'Local Transcription Model',
@@ -525,10 +537,10 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
     personality: 'Default assistant style for new sessions.',
     showReasoning: 'Show reasoning sections when the backend provides them.'
   },
-  timezone: 'Used when Zeus needs local time context. Blank uses the system timezone.',
+  timezone: 'Used when Hermes needs local time context. Blank uses the system timezone.',
   agent: {
     imageInputMode: 'Controls how image attachments are sent to the model.',
-    maxTurns: 'Upper bound for tool-calling turns before Zeus stops a run.'
+    maxTurns: 'Upper bound for tool-calling turns before Hermes stops a run.'
   },
   terminal: {
     cwd: 'Default project folder for tool and terminal work.',
@@ -543,13 +555,13 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   codeExecution: {
     mode: 'How strictly code execution is scoped to the current project.'
   },
-  fileReadMaxChars: 'Maximum characters Zeus can read from one file request.',
+  fileReadMaxChars: 'Maximum characters Hermes can read from one file request.',
   approvals: {
-    mode: 'How Zeus handles commands that need explicit approval.',
+    mode: 'How Hermes handles commands that need explicit approval.',
     timeout: 'How long approval prompts wait before timing out.'
   },
   fileAccess: {
-    trustedPaths: 'Directories where Zeus can edit files without warnings or approval prompts. One path per line. The static deny list (SSH keys, credentials, system paths) always applies, even for trusted paths.'
+    trustedPaths: 'Directories where Hermes can edit files without warnings or approval prompts. One path per line. The static deny list (SSH keys, credentials, system paths) always applies, even for trusted paths.'
   },
   security: {
     redactSecrets: 'Hide detected secrets from model-visible content when possible.'
@@ -572,7 +584,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
     autoTts: 'Automatically speak assistant responses.'
   },
   tts: {
-    provider: 'Choose how Zeus speaks responses aloud. On-device providers run locally without API keys.',
+    provider: 'Choose how Hermes speaks responses aloud. On-device providers run locally without API keys.',
     xai: {
       voiceId: 'xAI voice ID (e.g. eve) or a custom voice ID.',
       language: 'Spoken language code, e.g. en.'
@@ -583,14 +595,15 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   stt: {
     enabled: 'Enable local or provider-backed speech transcription.',
-    provider: 'Choose how Zeus transcribes your voice. On-device providers run locally without API keys.',
+    provider: 'Choose how Hermes transcribes your voice. On-device providers run locally without API keys.',
+    echoTranscripts: 'Post the raw 🎙️ transcript of voice messages back to the chat.',
     elevenlabs: {
       languageCode: 'Optional ISO-639-3 language code. Blank lets ElevenLabs auto-detect.'
     }
   },
   updates: {
     nonInteractiveLocalChanges:
-      'When Zeus updates itself from the app (no terminal prompt), keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
+      'When Hermes updates itself from the app (no terminal prompt), keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
   }
 })
 
@@ -598,21 +611,21 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
 // badge + explanation below the description. Helps average users pick sensible
 // defaults without reading docs. Omitted fields have no recommendation.
 export const FIELD_RECOMMENDATIONS: Record<string, string> = defineFieldCopy({
-  modelContextLength: 'Leave at 0 — Zeus auto-detects the correct context window for your model.',
+  modelContextLength: 'Leave at 0 — Hermes auto-detects the correct context window for your model.',
   fallbackProviders: 'Add 1-2 backup providers so chats keep working if your main provider has an outage.',
   display: {
-    personality: 'Pick the personality that matches how you want Zeus to talk. "concise" is great for quick answers.',
-    showReasoning: 'Keep on if you want to see how Zeus thinks. Turn off for a cleaner, chat-only view.'
+    personality: 'Pick the personality that matches how you want Hermes to talk. "concise" is great for quick answers.',
+    showReasoning: 'Keep on if you want to see how Hermes thinks. Turn off for a cleaner, chat-only view.'
   },
   timezone: 'Leave blank to use your system timezone — correct in almost all cases.',
   agent: {
-    imageInputMode: 'Use "auto" — Zeus sends images when the model supports them and skips them otherwise.',
-    maxTurns: 'Leave at the default. Raise it only if Zeus stops mid-task on complex jobs.',
+    imageInputMode: 'Use "auto" — Hermes sends images when the model supports them and skips them otherwise.',
+    maxTurns: 'Leave at the default. Raise it only if Hermes stops mid-task on complex jobs.',
     serviceTier: 'Use "auto" unless you have a specific need for "flex" (cheaper but slower) or "priority" (faster but pricier).',
     toolUseEnforcement: 'Leave at the default — stricter modes can reject valid tool calls on some models.'
   },
   terminal: {
-    cwd: 'Set this to your main project folder so Zeus starts in the right place.',
+    cwd: 'Set this to your main project folder so Hermes starts in the right place.',
     backend: 'Use "local" — runs commands on your machine. Switch to Docker only if you need isolation.',
     persistentShell: 'Keep on — it preserves environment variables and working directory between commands.',
     envPassthrough: 'Leave empty unless you need specific env vars (like PATH additions) available to tools.'
@@ -632,18 +645,18 @@ export const FIELD_RECOMMENDATIONS: Record<string, string> = defineFieldCopy({
   },
   security: {
     redactSecrets: 'Keep on — hides API keys and tokens from the model so they don\'t leak into responses.',
-    allowPrivateUrls: 'Keep off — prevents Zeus from fetching internal/localhost URLs unless you explicitly allow it.'
+    allowPrivateUrls: 'Keep off — prevents Hermes from fetching internal/localhost URLs unless you explicitly allow it.'
   },
   browser: {
     allowPrivateUrls: 'Keep off — prevents the browser tool from navigating to internal/localhost URLs.',
-    autoLocalForPrivateUrls: 'Keep off unless you specifically want Zeus to open a local browser for private URLs.'
+    autoLocalForPrivateUrls: 'Keep off unless you specifically want Hermes to open a local browser for private URLs.'
   },
   checkpoints: {
-    enabled: 'Keep on — lets you undo file changes Zeus makes. Uses minimal disk space.'
+    enabled: 'Keep on — lets you undo file changes Hermes makes. Uses minimal disk space.'
   },
   memory: {
-    memoryEnabled: 'Keep on — lets Zeus remember facts across sessions, making it more helpful over time.',
-    userProfileEnabled: 'Keep on — Zeus builds a compact profile of your preferences for more relevant responses.',
+    memoryEnabled: 'Keep on — lets Hermes remember facts across sessions, making it more helpful over time.',
+    userProfileEnabled: 'Keep on — Hermes builds a compact profile of your preferences for more relevant responses.',
     provider: 'Use "local" — memories stay on your device. Switch to a cloud provider only if you want sync across devices.'
   },
   context: {
@@ -653,7 +666,7 @@ export const FIELD_RECOMMENDATIONS: Record<string, string> = defineFieldCopy({
     enabled: 'Keep on — prevents "context too long" errors in long conversations by summarizing older messages.'
   },
   voice: {
-    autoTts: 'Turn on if you want Zeus to read responses aloud. Most users prefer off and read instead.',
+    autoTts: 'Turn on if you want Hermes to read responses aloud. Most users prefer off and read instead.',
     recordKey: 'Set a key combo (e.g. Ctrl+Shift+R) to hold-to-talk without clicking the mic button.',
     maxRecordingSeconds: 'Leave at the default — long enough for detailed voice prompts.'
   },
@@ -674,7 +687,7 @@ export const SECTIONS: DesktopConfigSection[] = [
   {
     id: 'model',
     label: 'Model',
-    icon: codiconIcon('hubot'),
+    icon: Box,
     keys: ['model_context_length', 'fallback_providers']
   },
   {
@@ -742,6 +755,7 @@ export const SECTIONS: DesktopConfigSection[] = [
     keys: [
       'tts.provider',
       'stt.enabled',
+      'stt.echo_transcripts',
       'stt.provider',
       'voice.auto_tts',
       'tts.edge.voice',

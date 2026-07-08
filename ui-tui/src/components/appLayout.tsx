@@ -1,6 +1,6 @@
 import { AlternateScreen, Box, NoSelect, ScrollBox, Text } from '@hermes/ink'
 import { useStore } from '@nanostores/react'
-import { Fragment, memo, useMemo, useRef } from 'react'
+import { Fragment, memo, useEffect, useMemo, useRef } from 'react'
 
 import { useGateway } from '../app/gatewayContext.js'
 import type { AppLayoutProps } from '../app/interfaces.js'
@@ -19,15 +19,18 @@ import { PerfPane } from '../lib/perfPane.js'
 import { composerPromptText } from '../lib/prompt.js'
 
 import { AgentsOverlay } from './agentsOverlay.js'
-import { GoodVibesHeart, StatusRule, StickyPromptTracker, TranscriptScrollbar } from './appChrome.js'
+import { StatusRule, StickyPromptTracker, TranscriptScrollbar } from './appChrome.js'
 import { FloatingOverlays, PromptZone } from './appOverlays.js'
 import { Banner, Panel, SessionPanel } from './branding.js'
 import { FpsOverlay } from './fpsOverlay.js'
 import { HelpHint } from './helpHint.js'
+import { Journey } from './journey.js'
 import { MessageLine } from './messageLine.js'
 import { QueuedMessages } from './queuedMessages.js'
 import { LiveTodoPanel, StreamingAssistant } from './streamingAssistant.js'
 import { TextInput, type TextInputMouseApi } from './textInput.js'
+
+
 
 const PromptPrefix = memo(function PromptPrefix({
   bold = false,
@@ -61,6 +64,8 @@ const TranscriptPane = memo(function TranscriptPane({
   transcript
 }: Pick<AppLayoutProps, 'actions' | 'composer' | 'progress' | 'transcript'>) {
   const ui = useStore($uiState)
+
+  const bodyCols = composer.cols
 
   // LiveTodoPanel rides as a child of the latest user-message row so it
   // visually belongs to the prompt and follows it during scroll. -1 when
@@ -128,7 +133,7 @@ const TranscriptPane = memo(function TranscriptPane({
                 <Panel sections={row.msg.panelData.sections} t={ui.theme} title={row.msg.panelData.title} />
               ) : (
                 <MessageLine
-                  cols={composer.cols}
+                  cols={bodyCols}
                   compact={ui.compact}
                   detailsMode={ui.detailsMode}
                   detailsModeCommandOverride={ui.detailsModeCommandOverride}
@@ -150,7 +155,7 @@ const TranscriptPane = memo(function TranscriptPane({
           {transcript.virtualHistory.bottomSpacer > 0 ? <Box height={transcript.virtualHistory.bottomSpacer} /> : null}
 
           <StreamingAssistant
-            cols={composer.cols}
+            cols={bodyCols}
             compact={ui.compact}
             detailsMode={ui.detailsMode}
             detailsModeCommandOverride={ui.detailsModeCommandOverride}
@@ -331,10 +336,6 @@ const ComposerPane = memo(function ComposerPane({
                   voiceRecordKey={composer.voiceRecordKey}
                 />
               </Box>
-
-              <Box position="absolute" right={0}>
-                <GoodVibesHeart t={ui.theme} tick={status.goodVibesTick} />
-              </Box>
             </Box>
           </>
         )}
@@ -360,6 +361,13 @@ const AgentsOverlayPane = memo(function AgentsOverlayPane() {
       t={ui.theme}
     />
   )
+})
+
+const JourneyPane = memo(function JourneyPane() {
+  const { gw } = useGateway()
+  const ui = useStore($uiState)
+
+  return <Journey gw={gw} onClose={() => patchOverlayState({ journey: false })} t={ui.theme} />
 })
 
 const StatusRulePane = memo(function StatusRulePane({
@@ -419,11 +427,15 @@ export const AppLayout = memo(function AppLayout({
 
   return (
     <Shell {...shellProps}>
-      <Box flexDirection="column" flexGrow={1}>
+      <Box flexDirection="column" flexGrow={1} position="relative">
         <Box flexDirection="row" flexGrow={1}>
           {overlay.agents ? (
             <PerfPane id="agents">
               <AgentsOverlayPane />
+            </PerfPane>
+          ) : overlay.journey ? (
+            <PerfPane id="journey">
+              <JourneyPane />
             </PerfPane>
           ) : (
             <PerfPane id="transcript">
@@ -432,7 +444,7 @@ export const AppLayout = memo(function AppLayout({
           )}
         </Box>
 
-        {!overlay.agents && (
+        {!overlay.agents && !overlay.journey && (
           <>
             <PerfPane id="prompt">
               <PromptZone

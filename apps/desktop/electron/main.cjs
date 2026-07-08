@@ -25594,38 +25594,47 @@ var {
   session,
   shell,
   systemPreferences
-} = require("electron");
-var crypto = require("node:crypto");
-var fs = require("node:fs");
-var http = require("node:http");
-var https = require("node:https");
-var path = require("node:path");
-var { pathToFileURL } = require("node:url");
-var { execFileSync, spawn } = require("node:child_process");
-var { installEmbedReferer } = require_embed_referer();
-var { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } = require_bootstrap_platform();
-var { runBootstrap } = require_bootstrap_runner();
-var {
+} = require('electron')
+const crypto = require('node:crypto')
+const fs = require('node:fs')
+const http = require('node:http')
+const https = require('node:https')
+const os = require('node:os')
+const path = require('node:path')
+const { pathToFileURL } = require('node:url')
+const { execFileSync, spawn } = require('node:child_process')
+const { installEmbedReferer } = require('./embed-referer.cjs')
+const { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } = require('./bootstrap-platform.cjs')
+const { runBootstrap } = require('./bootstrap-runner.cjs')
+const {
   buildSessionWindowUrl,
   chatWindowWebPreferences,
   createSessionWindowRegistry,
   SESSION_WINDOW_MIN_HEIGHT,
   SESSION_WINDOW_MIN_WIDTH
-} = require_session_windows();
-var { canImportHermesCli, verifyHermesCli } = require_backend_probes();
-var { createLinkTitleWindow } = require_link_title_window();
-var { probeGatewayWebSocket } = require_gateway_ws_probe();
-var { adoptServedDashboardToken } = require_dashboard_token();
-var { waitForDashboardPortAnnouncement } = require_backend_ready();
-var { serializeJsonBody, setJsonRequestHeaders } = require_oauth_net_request();
-var { fetchMarketplaceThemes, searchMarketplaceThemes } = require_vscode_marketplace();
-var { buildDesktopBackendEnv, normalizeHermesHomeRoot } = require_backend_env();
-var { readWindowsUserEnvVar } = require_windows_user_env();
-var { readWslWindowsClipboardImage } = require_wsl_clipboard_image();
-var { nativeOverlayWidth: computeNativeOverlayWidth } = require_titlebar_overlay_width();
-var { readDirForIpc } = require_fs_read_dir();
-var { readLiveUpdateMarker } = require_update_marker();
-var {
+} = require('./session-windows.cjs')
+const { canImportHermesCli, verifyHermesCli } = require('./backend-probes.cjs')
+const {
+  createLinkTitleWindow,
+  guardLinkTitleSession,
+  readLinkTitleWindowTitle
+} = require('./link-title-window.cjs')
+const { probeGatewayWebSocket } = require('./gateway-ws-probe.cjs')
+const { adoptServedDashboardToken } = require('./dashboard-token.cjs')
+const { waitForDashboardPortAnnouncement } = require('./backend-ready.cjs')
+const { dashboardFallbackArgs, sourceDeclaresServe } = require('./backend-command.cjs')
+const { serializeJsonBody, setJsonRequestHeaders } = require('./oauth-net-request.cjs')
+const { fetchMarketplaceThemes, searchMarketplaceThemes } = require('./vscode-marketplace.cjs')
+const { buildDesktopBackendEnv, normalizeHermesHomeRoot } = require('./backend-env.cjs')
+const { readWindowsUserEnvVar } = require('./windows-user-env.cjs')
+const { readWslWindowsClipboardImage } = require('./wsl-clipboard-image.cjs')
+const {
+  nativeOverlayWidth: computeNativeOverlayWidth,
+  macTitleBarOverlayHeight
+} = require('./titlebar-overlay-width.cjs')
+const { readDirForIpc } = require('./fs-read-dir.cjs')
+const { readLiveUpdateMarker, writeUpdateMarker } = require('./update-marker.cjs')
+const {
   resolveUnpackedRelease,
   decideRelaunchOutcome,
   sandboxPreflight,
@@ -25739,12 +25748,17 @@ if (USER_DATA_OVERRIDE) {
   fs.mkdirSync(resolvedUserData, { recursive: true });
   app.setPath("userData", resolvedUserData);
 }
-var DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER;
-var IS_PACKAGED = app.isPackaged;
-var IS_MAC = process.platform === "darwin";
-var IS_WINDOWS = process.platform === "win32";
-var IS_WSL = isWslEnvironment();
-var APP_ROOT = app.getAppPath();
+
+const DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER
+const IS_PACKAGED = app.isPackaged
+const IS_MAC = process.platform === 'darwin'
+const IS_WINDOWS = process.platform === 'win32'
+const IS_WSL = isWslEnvironment()
+// Truthful macOS kernel major (Tahoe = 25). Product version lies (16 vs 26) per
+// build SDK, so gate Tahoe workarounds on Darwin instead.
+const DARWIN_MAJOR = IS_MAC ? Number.parseInt(os.release(), 10) || 0 : 0
+const APP_ROOT = app.getAppPath()
+
 function hiddenWindowsChildOptions(options = {}) {
   if (!IS_WINDOWS || Object.prototype.hasOwnProperty.call(options, "windowsHide")) {
     return options;
@@ -25947,7 +25961,10 @@ function getWindowBackgroundColor() {
 var TITLEBAR_OVERLAY_COLOR = "rgba(1, 0, 0, 0)";
 function getTitleBarOverlayOptions() {
   if (IS_MAC) {
-    return { height: TITLEBAR_HEIGHT };
+    // Tahoe (Darwin 25+) misplaces the traffic lights when the overlay has a
+    // nonzero height (electron#49183); 0 there keeps them at the configured
+    // inset. See macTitleBarOverlayHeight.
+    return { height: macTitleBarOverlayHeight({ darwinMajor: DARWIN_MAJOR, titlebarHeight: TITLEBAR_HEIGHT }) }
   }
   if (!IS_WINDOWS && !IS_WSL) {
     return false;
@@ -26112,30 +26129,57 @@ function registerMediaProtocol() {
     });
   });
 }
-var mainWindow = null;
-var hermesProcess = null;
-var connectionPromise = null;
-var backendPool = /* @__PURE__ */ new Map();
-var POOL_MAX_BACKENDS = Math.max(1, Number(process.env.HERMES_DESKTOP_POOL_MAX) || 3);
-var POOL_IDLE_MS = Math.max(6e4, Number(process.env.HERMES_DESKTOP_POOL_IDLE_MS) || 10 * 6e4);
-var POOL_KEEPALIVE_FRESH_MS = 9e4;
-var poolIdleReaper = null;
-var RENDERER_RELOAD_WINDOW_MS = 6e4;
-var RENDERER_RELOAD_MAX = 3;
-var rendererReloadTimes = [];
-var bootstrapFailure = null;
-var backendStartFailure = null;
-var bootstrapAbortController = null;
-var connectionConfigCache = null;
-var connectionConfigCacheMtime = null;
-var hermesLog = [];
-var previewWatchers = /* @__PURE__ */ new Map();
-var previewShortcutActive = false;
-var desktopLogBuffer = "";
-var desktopLogFlushTimer = null;
-var desktopLogFlushPromise = Promise.resolve();
-var nativeThemeListenerInstalled = false;
-var bootProgressState = {
+
+let mainWindow = null
+let hermesProcess = null
+let connectionPromise = null
+// Additional per-profile backends, keyed by profile name. The PRIMARY backend
+// (the desktop's launch profile) stays managed by hermesProcess +
+// connectionPromise + startHermes(); this pool only holds EXTRA profile
+// backends spawned lazily when a session belongs to a different profile. A user
+// with no named profiles never populates this map, so their experience is
+// byte-for-byte the single-backend behavior.
+const backendPool = new Map() // profile -> { process, port, token, connectionPromise, lastActiveAt }
+// Keep the pool light: cap concurrent profile backends (LRU eviction) and reap
+// idle ones. A user idles at exactly the primary backend; pool backends only
+// exist while a non-primary profile is actively being chatted through.
+const POOL_MAX_BACKENDS = Math.max(1, Number(process.env.HERMES_DESKTOP_POOL_MAX) || 3)
+const POOL_IDLE_MS = Math.max(60_000, Number(process.env.HERMES_DESKTOP_POOL_IDLE_MS) || 10 * 60_000)
+// A backend touched within this window has a live renderer socket (the keepalive
+// pings every 60s for every open profile). LRU eviction must spare these — a
+// concurrent multi-profile session keeps several backends "fresh" at once, and
+// killing one to honor the soft cap would abort a running agent.
+const POOL_KEEPALIVE_FRESH_MS = 90_000
+let poolIdleReaper = null
+// Auto-reload budget for renderer crashes. A deterministic startup crash would
+// otherwise loop forever (reload → crash → reload), pinning CPU and spamming
+// logs. Allow a few reloads per rolling window, then stop and leave the dead
+// window so the user can read the error / quit.
+const RENDERER_RELOAD_WINDOW_MS = 60_000
+const RENDERER_RELOAD_MAX = 3
+let rendererReloadTimes = []
+// Latched bootstrap failure: when the first-launch install fails, we hold
+// onto the error so subsequent startHermes() calls (e.g. the renderer's
+// ensureGatewayOpen retrying after the WS won't open) return the same error
+// instead of re-running install.ps1 in a hot loop. Cleared explicitly by
+// the renderer's "Reload and retry" path or by quitting the app.
+let bootstrapFailure = null
+// Latched non-bootstrap backend spawn failure — stops getConnection() from
+// respawning hermes serve backend children in a tight loop while boot is broken.
+let backendStartFailure = null
+// Active first-launch install, so the renderer's Cancel button (and app quit)
+// can abort the in-flight install.sh/ps1 instead of leaving it running.
+let bootstrapAbortController = null
+let connectionConfigCache = null
+let connectionConfigCacheMtime = null
+const hermesLog = []
+const previewWatchers = new Map()
+let previewShortcutActive = false
+let desktopLogBuffer = ''
+let desktopLogFlushTimer = null
+let desktopLogFlushPromise = Promise.resolve()
+let nativeThemeListenerInstalled = false
+let bootProgressState = {
   error: null,
   fakeMode: BOOT_FAKE_MODE,
   message: "Waiting to start Zeus backend",
@@ -26506,31 +26550,117 @@ function findOnPath(command) {
 function isCommandScript(command) {
   return IS_WINDOWS && /\.(cmd|bat)$/i.test(command || "");
 }
-function unwrapWindowsVenvHermesCommand(command, dashboardArgs) {
-  if (!IS_WINDOWS || !command || isCommandScript(command)) return null;
-  const resolved = path.resolve(String(command));
-  if (!/^hermes(?:\.exe)?$/i.test(path.basename(resolved))) return null;
-  const scriptsDir = path.dirname(resolved);
-  if (path.basename(scriptsDir).toLowerCase() !== "scripts") return null;
-  const venvRoot = path.dirname(scriptsDir);
-  const python = getNoConsoleVenvPython(venvRoot);
-  if (!fileExists(python)) return null;
-  const root = path.dirname(venvRoot);
+
+function unwrapWindowsVenvHermesCommand(command, backendArgs) {
+  if (!IS_WINDOWS || !command || isCommandScript(command)) return null
+
+  const resolved = path.resolve(String(command))
+  if (!/^hermes(?:\.exe)?$/i.test(path.basename(resolved))) return null
+
+  const scriptsDir = path.dirname(resolved)
+  if (path.basename(scriptsDir).toLowerCase() !== 'scripts') return null
+
+  const venvRoot = path.dirname(scriptsDir)
+  const python = getVenvPython(venvRoot)
+  if (!fileExists(python)) return null
+
+  const root = path.dirname(venvRoot)
+
+  // Smoke-test the venv interpreter before trusting it. A venv whose update
+  // died mid-`pip install` still has python.exe + hermes.exe on disk, but the
+  // backend dies on its first import (e.g. ModuleNotFoundError: dotenv) before
+  // the gateway ever binds. Returning it here also BYPASSED the caller's
+  // `--version` probe, so Retry/"Repair install" re-resolved the same broken
+  // venv forever instead of falling through to the bootstrap installer.
+  // Mirror isActiveRuntimeUsable(): probe with the checkout on PYTHONPATH so a
+  // healthy source-tree venv passes.
+  if (
+    !canImportHermesCli(python, {
+      env: {
+        PYTHONPATH: [...(directoryExists(root) ? [root] : []), process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
+      }
+    })
+  ) {
+    rememberLog(
+      `Ignoring venv Hermes at ${python}: runtime import probe failed (broken/partial venv); falling through to bootstrap.`
+    )
+    return null
+  }
+
   return {
-    label: `existing Zeus no-console Python at ${python}`,
+    label: `existing Hermes Python at ${python}`,
     command: python,
-    args: ["-m", "hermes_cli.main", ...dashboardArgs],
+    args: ['-m', 'hermes_cli.main', ...backendArgs],
     bootstrap: false,
     env: buildDesktopBackendEnv({
       hermesHome: HERMES_HOME,
       pythonPathEntries: [...directoryExists(root) ? [root] : [], ...getVenvSitePackagesEntries(venvRoot)],
       venvRoot
     }),
-    kind: "python",
-    readyFile: true,
+    kind: 'python',
+    // Surfaced so backendSupportsServe() can read this runtime's source for the
+    // `serve` capability check instead of falling back to a heavyweight probe.
+    root,
     shell: false
   };
 }
+
+// Does the resolved runtime understand the `serve` subcommand? The desktop
+// spawns `hermes serve`; runtimes older than serve only have `dashboard`. We
+// detect support so getBackendArgsForRuntime() can route old runtimes through
+// the legacy `dashboard --no-open` form instead of crashing on an unknown
+// subcommand (would brick every user mid-upgrade — #54568 follow-up).
+//
+// Fast path: read the runtime's own dashboard.py (instant, covers managed
+// installs, dev checkouts, and the Windows venv). Fallback: probe the CLI once
+// (covers a bare `hermes` resolved from PATH with no known source root). Result
+// is cached per resolved runtime so we probe at most once per backend.
+const _serveSupportCache = new Map()
+function backendSupportsServe(backend) {
+  if (!backend || !backend.command) return true
+  const key = `${backend.command}::${backend.root || ''}`
+  if (_serveSupportCache.has(key)) return _serveSupportCache.get(key)
+
+  let supported = null
+  if (backend.root) {
+    try {
+      const src = fs.readFileSync(path.join(backend.root, 'hermes_cli', 'subcommands', 'dashboard.py'), 'utf8')
+      supported = sourceDeclaresServe(src)
+    } catch {
+      supported = null // source unreadable — fall through to the probe
+    }
+  }
+
+  if (supported === null) {
+    try {
+      const prefix = backend.args && backend.args[0] === '-m' ? backend.args.slice(0, 2) : []
+      execFileSync(backend.command, [...prefix, 'serve', '--help'], {
+        cwd: backend.root || undefined,
+        env: { ...process.env, HERMES_HOME, ...(backend.env || {}) },
+        timeout: 15000,
+        stdio: 'ignore',
+        windowsHide: true
+      })
+      supported = true
+    } catch {
+      supported = false
+    }
+  }
+
+  _serveSupportCache.set(key, supported)
+  rememberLog(
+    `[backend] \`serve\` ${supported ? 'supported' : 'unsupported → routing via legacy `dashboard`'} for ${backend.label || key}`
+  )
+  return supported
+}
+
+// Given a resolved backend whose args target `serve`, return the args the
+// runtime actually understands: unchanged when `serve` is supported, or
+// rewritten to `dashboard --no-open` for older runtimes.
+function getBackendArgsForRuntime(backend) {
+  return backendSupportsServe(backend) ? backend.args : dashboardFallbackArgs(backend.args)
+}
+
 function normalizeExecutablePathForCompare(commandPath) {
   if (!commandPath) return null;
   let resolved = path.resolve(String(commandPath));
@@ -26649,46 +26779,28 @@ function findGitBash() {
 function getVenvPython(venvRoot) {
   return path.join(venvRoot, IS_WINDOWS ? path.join("Scripts", "python.exe") : path.join("bin", "python"));
 }
-function readVenvHome(venvRoot) {
-  try {
-    const cfg = fs.readFileSync(path.join(venvRoot, "pyvenv.cfg"), "utf8");
-    const match = cfg.match(/^home\s*=\s*(.+?)\s*$/im);
-    return match ? match[1].trim() : null;
-  } catch {
-    return null;
-  }
-}
-function getNoConsoleVenvPython(venvRoot) {
-  if (!IS_WINDOWS) return getVenvPython(venvRoot);
-  const venvPythonw = path.join(venvRoot, "Scripts", "pythonw.exe");
-  if (fileExists(venvPythonw)) return venvPythonw;
-  const baseHome = readVenvHome(venvRoot);
-  if (baseHome) {
-    const basePythonw = path.join(baseHome, "pythonw.exe");
-    if (fileExists(basePythonw)) return basePythonw;
-  }
-  return venvPythonw;
-}
-function toNoConsolePython(pythonPath) {
-  if (!IS_WINDOWS || !pythonPath) return pythonPath;
-  const resolved = String(pythonPath);
-  if (/pythonw\.exe$/i.test(resolved)) return resolved;
-  if (/python\.exe$/i.test(resolved)) {
-    const pythonw = path.join(path.dirname(resolved), "pythonw.exe");
-    if (fileExists(pythonw)) return pythonw;
-  }
-  return pythonPath;
-}
-function applyWindowsNoConsoleSpawnHints(backend) {
-  if (!IS_WINDOWS || !backend?.command) return backend;
-  const usesHermesModule = backend.kind === "python" || Array.isArray(backend.args) && backend.args[0] === "-m" && backend.args[1] === "hermes_cli.main";
-  if (!usesHermesModule) return backend;
-  backend.command = toNoConsolePython(backend.command);
-  if (/pythonw\.exe$/i.test(path.basename(String(backend.command || "")))) {
-    backend.readyFile = true;
-  }
-  return backend;
-}
+
+// Windows console-window flashes are governed by the *parent's* console, not by
+// each child spawn. A GUI-subsystem parent (pythonw.exe) has no console, so every
+// console-subsystem child it spawns (git, gh, cmd, ...) must allocate its own —
+// which flashes a window. A console-subsystem parent (python.exe) instead owns a
+// single console that all of its children inherit, so none of them flash.
+//
+// Note this change adds no new creationflag: the backend spawn is ALREADY wrapped
+// in hiddenWindowsChildOptions() (windowsHide: true), but that setting is INERT
+// against pythonw.exe — a GUI-subsystem process has no console for it to act on.
+// Switching the backend to the venv's console python.exe is what makes the
+// existing wrapper load-bearing: with windowsHide the process comes up owning a
+// *windowless* console (verified at runtime — it has an attachable console whose
+// window handle is NULL), and its children inherit that one windowless console
+// instead of each allocating a visible one.
+//
+// This makes "no flashing windows" a property of the one backend launch rather
+// than a flag that has to be remembered at every descendant spawn site. Restoring
+// console python also restores stdout, so the backend announces its port on the
+// normal HERMES_DASHBOARD_READY stdout line and no ready-file side channel is
+// needed.
+
 function getVenvSitePackagesEntries(venvRoot) {
   const entries = [];
   if (!venvRoot) return entries;
@@ -27043,10 +27155,26 @@ async function releaseBackendLock(updateRoot, tag) {
       rememberLog(`[${tag}] venv shim unlocked; safe to proceed`);
       return { unlocked: true };
     }
-    await new Promise((r) => setTimeout(r, 300));
+    // A supervised backend can respawn between kill and check (grandchildren,
+    // pool entries registered mid-teardown). Re-collect and re-kill each pass
+    // instead of trusting the initial sweep.
+    const stragglers = []
+    if (hermesProcess && Number.isInteger(hermesProcess.pid)) stragglers.push(hermesProcess.pid)
+    for (const entry of backendPool.values()) {
+      if (entry.process && Number.isInteger(entry.process.pid)) stragglers.push(entry.process.pid)
+    }
+    for (const pid of stragglers) forceKillProcessTree(pid)
+    await new Promise(r => setTimeout(r, 300))
   }
-  rememberLog(`[${tag}] venv shim still locked after 15s; proceeding anyway (force)`);
-  return { unlocked: false };
+  // Do NOT proceed past a held lock: handing off to the updater while another
+  // process (a second desktop window, a user terminal, an unkillable child)
+  // still maps the venv's files guarantees a half-updated venv — the updater's
+  // dependency sync dies on access-denied partway through uninstalls, leaving
+  // imports broken (the July 2026 brotlicffi/_sodium.pyd incidents). Failing
+  // the update loudly and keeping the app running is strictly better than a
+  // bricked install that needs manual venv surgery.
+  rememberLog(`[${tag}] venv shim still locked after 15s; aborting hand-off (something outside this app holds the venv)`)
+  return { unlocked: false }
 }
 async function applyUpdates(opts = {}) {
   if (updateInFlight) {
@@ -27088,8 +27216,29 @@ async function applyUpdates(opts = {}) {
     if (targetApp) {
       updaterArgs.push("--target-app", targetApp);
     }
-    const venvBin = path.join(updateRoot, "venv", IS_WINDOWS ? "Scripts" : "bin");
-    await releaseBackendLockForUpdate(updateRoot);
+    const venvBin = path.join(updateRoot, 'venv', IS_WINDOWS ? 'Scripts' : 'bin')
+
+    // Stop our own backend(s) and wait for the venv shim to unlock BEFORE we
+    // spawn the updater. Without this the updater races a still-locked
+    // hermes.exe (held by the backend child / its grandchildren) and the update
+    // bricks. See releaseBackendLockForUpdate for the full failure analysis.
+    const lock = await releaseBackendLockForUpdate(updateRoot)
+    if (!lock.unlocked) {
+      // Something OUTSIDE this app holds the venv (a second window, a user
+      // terminal running hermes, an unkillable child). Handing off anyway
+      // guarantees a half-updated venv — abort loudly instead and let the
+      // user close the holder and retry. Restart our own backend so the app
+      // keeps working after the failed attempt.
+      const message =
+        'Update aborted: another process is holding the Hermes install open ' +
+        '(a second Hermes window or a terminal running hermes?). Close it and retry.'
+      emitUpdateProgress({ stage: 'error', message, percent: null })
+      startHermes().catch(() => {})
+      return { ok: false, error: message }
+    }
+
+    // Detached so the updater outlives this process — it needs us GONE before
+    // `hermes update` will run (the venv shim is locked while we live).
     const child = spawn(updater, updaterArgs, {
       cwd: HERMES_HOME,
       env: {
@@ -27100,9 +27249,28 @@ async function applyUpdates(opts = {}) {
       detached: true,
       stdio: "ignore",
       windowsHide: false
-    });
-    child.unref();
-    rememberLog(`[updates] launched updater: ${updater} ${updaterArgs.join(" ")}; exiting desktop to release venv shim`);
+    })
+    child.unref()
+
+    // Write the update-in-progress marker IMMEDIATELY — before the 2.5s
+    // quit dwell. The Tauri updater won't write its own marker for several
+    // seconds (window init + manifest), and during that gap our renderer
+    // can reconnect and spawn a fresh backend that re-locks .pyd files in
+    // the venv. By writing the marker ourselves the renderer's
+    // waitForUpdateToFinish() gate sees a live update and parks instead.
+    // The updater overwrites this with its own PID later; same format.
+    if (Number.isInteger(child.pid)) {
+      writeUpdateMarker(HERMES_HOME, child.pid)
+    }
+
+    rememberLog(`[updates] launched updater: ${updater} ${updaterArgs.join(' ')}; exiting desktop to release venv shim`)
+
+    // Linger on the "updating — don't reopen" overlay long enough for the user
+    // to actually read it (and to bridge the gap until the updater's own window
+    // appears), THEN quit to release the venv shim. The updater rebuilds and
+    // relaunches us when it's done. (#50419 — a 600ms quit looked like a crash
+    // and lured users into the #50238 relaunch loop.)
+    isQuittingForHandoff = true
     setTimeout(() => {
       app.quit();
     }, UPDATE_HANDOFF_DWELL_MS);
@@ -27112,16 +27280,31 @@ async function applyUpdates(opts = {}) {
   }
 }
 async function handOffWindowsBootstrapRecovery(reason) {
-  if (!IS_WINDOWS || !IS_PACKAGED) return false;
-  const updater = resolveUpdaterBinary();
-  if (!updater) return false;
-  const updateRoot = resolveUpdateRoot();
-  const { branch: configuredBranch } = readDesktopUpdateConfig();
-  const branch = directoryExists(path.join(updateRoot, ".git")) ? await resolveHealedBranch(updateRoot, configuredBranch || DEFAULT_UPDATE_BRANCH) : configuredBranch || DEFAULT_UPDATE_BRANCH;
-  const venvBin = path.join(updateRoot, "venv", IS_WINDOWS ? "Scripts" : "bin");
-  const venvHermes = path.join(venvBin, IS_WINDOWS ? "Zeus.exe" : "hermes");
-  const updaterArgs = fileExists(venvHermes) ? ["--update", "--branch", branch] : ["--repair", "--branch", branch];
-  await releaseBackendLockForUpdate(updateRoot);
+  if (!IS_WINDOWS || !IS_PACKAGED) return false
+
+  const updater = resolveUpdaterBinary()
+  if (!updater) return false
+
+  const updateRoot = resolveUpdateRoot()
+  const { branch: configuredBranch } = readDesktopUpdateConfig()
+  const branch = directoryExists(path.join(updateRoot, '.git'))
+    ? await resolveHealedBranch(updateRoot, configuredBranch || DEFAULT_UPDATE_BRANCH)
+    : configuredBranch || DEFAULT_UPDATE_BRANCH
+  const venvBin = path.join(updateRoot, 'venv', IS_WINDOWS ? 'Scripts' : 'bin')
+  const venvHermes = path.join(venvBin, IS_WINDOWS ? 'hermes.exe' : 'hermes')
+  const venvPython = path.join(venvBin, IS_WINDOWS ? 'python.exe' : 'python')
+  // Choose the gentle in-place --update when ANY real-install signal is present,
+  // not just the `hermes.exe` console-script shim. That shim is generated at the
+  // END of venv setup and is absent in exactly the interrupted/quarantined states
+  // this recovery exists to heal — gating on it alone forced the destructive
+  // --repair (full venv recreate) and drove reinstall loops. The venv interpreter
+  // and the bootstrap-complete marker are present earlier and are better signals.
+  const haveRealInstall =
+    fileExists(venvPython) || fileExists(venvHermes) || fileExists(path.join(updateRoot, '.hermes-bootstrap-complete'))
+  const updaterArgs = haveRealInstall ? ['--update', '--branch', branch] : ['--repair', '--branch', branch]
+
+  await releaseBackendLockForUpdate(updateRoot)
+
   const child = spawn(updater, updaterArgs, {
     cwd: HERMES_HOME,
     env: {
@@ -27132,8 +27315,16 @@ async function handOffWindowsBootstrapRecovery(reason) {
     detached: true,
     stdio: "ignore",
     windowsHide: false
-  });
-  child.unref();
+  })
+  child.unref()
+
+  // Same marker pre-write as applyUpdates — see comment there. The recovery
+  // hand-off has the same window where the renderer can respawn a backend
+  // before the updater writes its own marker.
+  if (Number.isInteger(child.pid)) {
+    writeUpdateMarker(HERMES_HOME, child.pid)
+  }
+
   rememberLog(
     `[bootstrap] handed off ${reason} recovery to updater: ${updater} ${updaterArgs.join(" ")}; exiting desktop to release app.asar`
   );
@@ -27194,9 +27385,21 @@ async function applyUpdatesPosixInApp() {
   }
   const env22 = {
     HERMES_HOME,
-    PATH: pathWithHermesManagedNode(path.join(updateRoot, "venv", "bin"))
-  };
-  const desktopChildPids = [];
+    PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'bin'))
+  }
+
+  // `hermes update` reaps stale `hermes serve` backends (a code update
+  // leaves the running process serving old Python against the freshly-updated
+  // JS bundle). But OUR backend is one of those processes, and killing it
+  // mid-update produces the boot→kill→crash loop in #37532 — the desktop
+  // already restarts its own backend via the rebuild+relaunch below, so the
+  // reap must spare it. Hand the live backend's PID to the update process;
+  // _kill_stale_dashboard_processes reads HERMES_DESKTOP_CHILD_PID and excludes
+  // it while still reaping any genuinely-orphaned backends. (#37532)
+  // Exclude every desktop-managed backend (primary + all pool profiles) from
+  // the update reaper. _kill_stale_dashboard_processes accepts a comma-separated
+  // list (a single int still parses for back-compat).
+  const desktopChildPids = []
   if (hermesProcess && Number.isInteger(hermesProcess.pid)) {
     desktopChildPids.push(hermesProcess.pid);
   }
@@ -27483,17 +27686,20 @@ function writeDefaultProjectDir(dir) {
     rememberLog(`[settings] write default project dir failed: ${error.message}`);
   }
 }
-function createPythonBackend(root, label, dashboardArgs, options = {}) {
-  const python = findPythonForRoot(root);
-  if (!python) return null;
-  const venvRoot = path.join(root, "venv");
-  const venvPython = getVenvPython(venvRoot);
-  const command = IS_WINDOWS && fileExists(venvPython) ? getNoConsoleVenvPython(venvRoot) : toNoConsolePython(python);
-  return applyWindowsNoConsoleSpawnHints({
-    kind: "python",
+
+function createPythonBackend(root, label, backendArgs, options = {}) {
+  const python = findPythonForRoot(root)
+  if (!python) return null
+
+  const venvRoot = path.join(root, 'venv')
+  const venvPython = getVenvPython(venvRoot)
+  const command = IS_WINDOWS && fileExists(venvPython) ? venvPython : python
+
+  return {
+    kind: 'python',
     label,
     command,
-    args: ["-m", "hermes_cli.main", ...dashboardArgs],
+    args: ['-m', 'hermes_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
       hermesHome: HERMES_HOME,
       pythonPathEntries: [root],
@@ -27502,16 +27708,22 @@ function createPythonBackend(root, label, dashboardArgs, options = {}) {
     root,
     bootstrap: Boolean(options.bootstrap),
     shell: false
-  });
+  }
 }
-function createActiveBackend(dashboardArgs) {
-  const venvPython = getVenvPython(VENV_ROOT);
-  const command = fileExists(venvPython) ? getNoConsoleVenvPython(VENV_ROOT) : toNoConsolePython(findSystemPython());
-  return applyWindowsNoConsoleSpawnHints({
-    kind: "python",
-    label: `Zeus at ${ACTIVE_HERMES_ROOT}`,
+
+// createActiveBackend — build a backend pointing at ACTIVE_HERMES_ROOT, the
+// canonical install location shared with the CLI installer. The venv at
+// VENV_ROOT may not exist yet on first run; bootstrap=true tells
+// ensureRuntime() to create / refresh it before launch.
+function createActiveBackend(backendArgs) {
+  const venvPython = getVenvPython(VENV_ROOT)
+  const command = fileExists(venvPython) ? venvPython : findSystemPython()
+
+  return {
+    kind: 'python',
+    label: `Hermes at ${ACTIVE_HERMES_ROOT}`,
     command,
-    args: ["-m", "hermes_cli.main", ...dashboardArgs],
+    args: ['-m', 'hermes_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
       hermesHome: HERMES_HOME,
       pythonPathEntries: [ACTIVE_HERMES_ROOT],
@@ -27520,20 +27732,23 @@ function createActiveBackend(dashboardArgs) {
     root: ACTIVE_HERMES_ROOT,
     bootstrap: true,
     shell: false
-  });
+  }
 }
-function resolveHermesBackend(dashboardArgs) {
-  const overrideRoot = process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT);
+
+function resolveHermesBackend(backendArgs) {
+  // 1. Explicit override -- HERMES_DESKTOP_HERMES_ROOT points at a developer
+  //    checkout. Honour it as-is (no bootstrap; the user is driving).
+  const overrideRoot = process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT)
   if (overrideRoot && isHermesSourceRoot(overrideRoot)) {
-    const backend = createPythonBackend(overrideRoot, `Zeus source at ${overrideRoot}`, dashboardArgs);
-    if (backend) return backend;
+    const backend = createPythonBackend(overrideRoot, `Hermes source at ${overrideRoot}`, backendArgs)
+    if (backend) return backend
   }
   if (!IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT)) {
-    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Zeus source at ${SOURCE_REPO_ROOT}`, dashboardArgs);
-    if (backend) return backend;
+    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Hermes source at ${SOURCE_REPO_ROOT}`, backendArgs)
+    if (backend) return backend
   }
   if (isBootstrapComplete()) {
-    return createActiveBackend(dashboardArgs);
+    return createActiveBackend(backendArgs)
   }
   if (process.env.HERMES_DESKTOP_IGNORE_EXISTING !== "1") {
     let hermesCommand = null;
@@ -27557,21 +27772,23 @@ function resolveHermesBackend(dashboardArgs) {
       }
     }
     if (hermesCommand) {
-      const unwrapped = unwrapWindowsVenvHermesCommand(hermesCommand, dashboardArgs);
+      const unwrapped = unwrapWindowsVenvHermesCommand(hermesCommand, backendArgs)
       if (unwrapped) {
         return unwrapped;
       }
       const shellForProbe = isCommandScript(hermesCommand);
       if (verifyHermesCli(hermesCommand, { shell: shellForProbe })) {
-        return unwrapWindowsVenvHermesCommand(hermesCommand, dashboardArgs) || {
-          label: `existing Zeus CLI at ${hermesCommand}`,
-          command: hermesCommand,
-          args: dashboardArgs,
-          bootstrap: false,
-          env: {},
-          kind: "command",
-          shell: shellForProbe
-        };
+        return (
+          unwrapWindowsVenvHermesCommand(hermesCommand, backendArgs) || {
+            label: `existing Hermes CLI at ${hermesCommand}`,
+            command: hermesCommand,
+            args: backendArgs,
+            bootstrap: false,
+            env: {},
+            kind: 'command',
+            shell: shellForProbe
+          }
+        )
       }
       rememberLog(
         `Ignoring existing Zeus CLI at ${hermesCommand}: --version probe failed; falling through to bootstrap.`
@@ -27581,15 +27798,15 @@ function resolveHermesBackend(dashboardArgs) {
   const python = findSystemPython();
   if (python) {
     if (canImportHermesCli(python)) {
-      return applyWindowsNoConsoleSpawnHints({
-        kind: "python",
+      return {
+        kind: 'python',
         label: `installed hermes_cli module via ${python}`,
-        command: toNoConsolePython(python),
-        args: ["-m", "hermes_cli.main", ...dashboardArgs],
+        command: python,
+        args: ['-m', 'hermes_cli.main', ...backendArgs],
         bootstrap: false,
         env: {},
         shell: false
-      });
+      }
     }
     rememberLog(`Ignoring system Python ${python}: hermes_cli is not importable; falling through to bootstrap.`);
   }
@@ -27597,7 +27814,7 @@ function resolveHermesBackend(dashboardArgs) {
     kind: "bootstrap-needed",
     label: "Zeus not installed yet; bootstrap required",
     command: null,
-    args: dashboardArgs,
+    args: backendArgs,
     bootstrap: true,
     env: {},
     shell: false,
@@ -27611,8 +27828,8 @@ function resolveHermesBackend(dashboardArgs) {
 }
 async function ensureRuntime(backend) {
   if (!backend.bootstrap) {
-    await advanceBootProgress("runtime.external", `Using ${backend.label}`, 32);
-    return applyWindowsNoConsoleSpawnHints(backend);
+    await advanceBootProgress('runtime.external', `Using ${backend.label}`, 32)
+    return backend
   }
   if (backend.kind === "bootstrap-needed") {
     rememberLog("[bootstrap] no Zeus install found; starting first-launch bootstrap");
@@ -27689,16 +27906,17 @@ async function ensureRuntime(backend) {
       `Zeus venv missing at ${VENV_ROOT}. Re-run the desktop installer or \`scripts/install.ps1\` to rebuild it.`
     );
   }
-  backend.command = getNoConsoleVenvPython(VENV_ROOT);
-  backend.label = `Zeus at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`;
+
+  backend.command = getVenvPython(VENV_ROOT)
+  backend.label = `Hermes at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`
   updateBootProgress({
     phase: "runtime.ready",
     message: "Zeus runtime is ready",
     progress: 82,
     running: true,
     error: null
-  });
-  return applyWindowsNoConsoleSpawnHints(backend);
+  })
+  return backend
 }
 function fetchJson(url, token, options = {}) {
   return new Promise((resolve, reject) => {
@@ -27942,9 +28160,10 @@ function getLinkTitleSession() {
   if (linkTitleSession || !app.isReady()) return linkTitleSession;
   linkTitleSession = session.fromPartition("hermes:link-titles", { cache: false });
   linkTitleSession.webRequest.onBeforeRequest((details, callback) => {
-    callback({ cancel: RENDER_TITLE_BLOCKED_RESOURCES.has(details.resourceType) });
-  });
-  return linkTitleSession;
+    callback({ cancel: RENDER_TITLE_BLOCKED_RESOURCES.has(details.resourceType) })
+  })
+  guardLinkTitleSession(linkTitleSession)
+  return linkTitleSession
 }
 function dequeueRenderTitle() {
   while (renderTitleInFlight < RENDER_TITLE_MAX_CONCURRENT && renderTitleQueue.length) {
@@ -27983,23 +28202,29 @@ function runRenderTitleJob(rawUrl) {
     } catch {
       return finish("");
     }
-    const readTitle = () => window2?.webContents?.getTitle?.() || "";
+
+    const finishWithTitle = () => finish(readLinkTitleWindowTitle(window))
     const scheduleGrace = () => {
-      if (graceTimer) clearTimeout(graceTimer);
-      graceTimer = setTimeout(() => finish(readTitle()), RENDER_TITLE_GRACE_MS);
-    };
-    hardTimer = setTimeout(() => finish(readTitle()), RENDER_TITLE_TIMEOUT_MS);
-    window2.webContents.setUserAgent(TITLE_USER_AGENT);
-    window2.webContents.on("page-title-updated", scheduleGrace);
-    window2.webContents.on("did-finish-load", scheduleGrace);
-    window2.webContents.on("did-fail-load", (_event, _code, _desc, _validatedURL, isMainFrame) => {
-      if (isMainFrame) finish("");
-    });
-    window2.loadURL(rawUrl, {
-      httpReferrer: "https://www.google.com/",
-      userAgent: TITLE_USER_AGENT
-    }).catch(() => finish(""));
-  });
+      if (graceTimer) clearTimeout(graceTimer)
+      graceTimer = setTimeout(finishWithTitle, RENDER_TITLE_GRACE_MS)
+    }
+
+    hardTimer = setTimeout(finishWithTitle, RENDER_TITLE_TIMEOUT_MS)
+
+    window.webContents.setUserAgent(TITLE_USER_AGENT)
+    window.webContents.on('page-title-updated', scheduleGrace)
+    window.webContents.on('did-finish-load', scheduleGrace)
+    window.webContents.on('did-fail-load', (_event, _code, _desc, _validatedURL, isMainFrame) => {
+      if (isMainFrame) finish('')
+    })
+
+    window
+      .loadURL(rawUrl, {
+        httpReferrer: 'https://www.google.com/',
+        userAgent: TITLE_USER_AGENT
+      })
+      .catch(() => finish(''))
+  })
 }
 function fetchHtmlTitleWithRenderer(rawUrl) {
   return new Promise((resolve) => {
@@ -28423,18 +28648,25 @@ function installPreviewShortcut(window2) {
     sendClosePreviewRequested();
   });
 }
-var ZOOM_STORAGE_KEY = "hermes:desktop:zoomLevel";
-function clampZoomLevel(value) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(Math.max(value, -9), 9);
-}
-function setAndPersistZoomLevel(window2, zoomLevel) {
-  if (!window2 || window2.isDestroyed()) return;
-  const next = clampZoomLevel(zoomLevel);
-  window2.webContents.setZoomLevel(next);
-  window2.webContents.executeJavaScript(
-    `try { localStorage.setItem(${JSON.stringify(ZOOM_STORAGE_KEY)}, ${JSON.stringify(String(next))}) } catch {}`
-  ).catch((error) => rememberLog(`[zoom] persist failed: ${error?.message || error}`));
+
+// Zoom level is persisted in the renderer's own localStorage (per-origin,
+// survives reloads/restarts) rather than a main-process JSON file. The main
+// process owns setZoomLevel, so we mirror each change into localStorage and
+// read it back on did-finish-load to re-apply after reloads or crash recovery.
+const { ZOOM_STORAGE_KEY, clampZoomLevel, percentToZoomLevel, zoomLevelToPercent } = require('./zoom.cjs')
+
+function setAndPersistZoomLevel(window, zoomLevel) {
+  if (!window || window.isDestroyed()) return
+  const next = clampZoomLevel(zoomLevel)
+  window.webContents.setZoomLevel(next)
+  // Keep any open settings UI in sync, including changes made via the
+  // keyboard shortcuts or the View menu.
+  window.webContents.send('hermes:zoom:changed', { level: next, percent: zoomLevelToPercent(next) })
+  window.webContents
+    .executeJavaScript(
+      `try { localStorage.setItem(${JSON.stringify(ZOOM_STORAGE_KEY)}, ${JSON.stringify(String(next))}) } catch {}`
+    )
+    .catch(error => rememberLog(`[zoom] persist failed: ${error?.message || error}`))
 }
 function restorePersistedZoomLevel(window2) {
   if (!window2 || window2.isDestroyed()) return;
@@ -29138,14 +29370,28 @@ function resetBootProgressForReconnect() {
     { allowDecrease: true }
   );
 }
-function resetHermesConnection() {
-  connectionPromise = null;
-  backendStartFailure = null;
-  if (hermesProcess && !hermesProcess.killed) {
-    hermesProcess.kill("SIGTERM");
+
+function stopBackendChild(child) {
+  if (!child || child.killed) return
+  try {
+    if (IS_WINDOWS && Number.isInteger(child.pid)) {
+      forceKillProcessTree(child.pid)
+    } else {
+      child.kill('SIGTERM')
+    }
+  } catch {
+    // Already gone.
   }
-  hermesProcess = null;
-  resetBootProgressForReconnect();
+}
+
+function resetHermesConnection() {
+  connectionPromise = null
+  backendStartFailure = null
+
+  stopBackendChild(hermesProcess)
+
+  hermesProcess = null
+  resetBootProgressForReconnect()
 }
 async function teardownPrimaryBackendAndWait() {
   const dying = hermesProcess && !hermesProcess.killed ? hermesProcess : null;
@@ -29246,13 +29492,21 @@ async function spawnPoolBackend(profile, entry) {
       ...getWindowState()
     };
   }
-  const token = crypto.randomBytes(32).toString("base64url");
-  const dashboardArgs = ["--profile", profile, "dashboard", "--no-open", "--host", "127.0.0.1", "--port", "0"];
-  const backend = await ensureRuntime(resolveHermesBackend(dashboardArgs));
-  const hermesCwd = resolveHermesCwd();
-  const webDist = resolveWebDist();
-  const readyFile = backend.readyFile ? makeDashboardReadyFile() : null;
-  rememberLog(`Starting Zeus backend for profile "${profile}" via ${backend.label}`);
+
+  const token = crypto.randomBytes(32).toString('base64url')
+  // --profile wins over the inherited HERMES_HOME env (see _apply_profile_override
+  // step 3 in hermes_cli/main.py), so the child re-homes to this profile.
+  // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
+  const backendArgs = ['--profile', profile, 'serve', '--host', '127.0.0.1', '--port', '0']
+  const backend = await ensureRuntime(resolveHermesBackend(backendArgs))
+  // Route old runtimes (no `serve`) through the legacy `dashboard --no-open`.
+  backend.args = getBackendArgsForRuntime(backend)
+  const hermesCwd = resolveHermesCwd()
+  const webDist = resolveWebDist()
+  const readyFile = backend.readyFile ? makeDashboardReadyFile() : null
+
+  rememberLog(`Starting Hermes backend for profile "${profile}" via ${backend.label}`)
+
   const child = spawn(
     backend.command,
     backend.args,
@@ -29328,27 +29582,19 @@ async function spawnPoolBackend(profile, entry) {
   };
 }
 function stopPoolBackend(profile) {
-  const entry = backendPool.get(profile);
-  if (!entry) return;
-  backendPool.delete(profile);
-  if (entry.process && !entry.process.killed) {
-    try {
-      entry.process.kill("SIGTERM");
-    } catch {
-    }
-  }
+  const entry = backendPool.get(profile)
+  if (!entry) return
+  backendPool.delete(profile)
+  stopBackendChild(entry.process)
 }
 async function teardownPoolBackendAndWait(profile) {
-  const entry = backendPool.get(profile);
-  if (!entry) return;
-  backendPool.delete(profile);
-  if (entry.process && !entry.process.killed) {
-    try {
-      entry.process.kill("SIGTERM");
-    } catch {
-    }
-  }
-  await waitForBackendExit(entry.process);
+  const entry = backendPool.get(profile)
+  if (!entry) return
+  backendPool.delete(profile)
+
+  stopBackendChild(entry.process)
+
+  await waitForBackendExit(entry.process)
 }
 function stopAllPoolBackends() {
   for (const profile of [...backendPool.keys()]) {
@@ -29378,17 +29624,24 @@ function profileNameFromDeleteRequest(request) {
   }
   return name.toLowerCase();
 }
+
+// Returns the profile name whose backend was torn down, or null when the
+// request is not a profile-delete.  The caller uses this to skip ensureBackend
+// for the just-torn-down profile — otherwise ensureBackend respawns a pool
+// backend whose ensure_hermes_home() recreates the deleted profile directory.
 async function prepareProfileDeleteRequest(request) {
-  const profile = profileNameFromDeleteRequest(request);
-  if (!profile || profile === "default" || !PROFILE_NAME_RE.test(profile)) {
-    return;
+  const profile = profileNameFromDeleteRequest(request)
+  if (!profile || profile === 'default' || !PROFILE_NAME_RE.test(profile)) {
+    return null
   }
   if (profile === primaryProfileKey()) {
-    writeActiveDesktopProfile("default");
-    await teardownPrimaryBackendAndWait();
-    return;
+    writeActiveDesktopProfile('default')
+    await teardownPrimaryBackendAndWait()
+    return profile
   }
-  await teardownPoolBackendAndWait(profile);
+
+  await teardownPoolBackendAndWait(profile)
+  return profile
 }
 async function startHermes() {
   if (bootstrapFailure) {
@@ -29422,20 +29675,38 @@ async function startHermes() {
         ...getWindowState()
       };
     }
-    await waitForUpdateToFinish();
-    const token = crypto.randomBytes(32).toString("base64url");
-    const dashboardArgs = ["dashboard", "--no-open", "--host", "127.0.0.1", "--port", "0"];
-    const activeProfile = readActiveDesktopProfile();
+
+    // Mutual exclusion with an in-app update (#50238). If this instance was
+    // relaunched while the Tauri updater is still applying an update, spawning
+    // a local backend now re-locks the venv shim and gets killed by the
+    // updater's straggler cleanup — looping. Park until the update finishes (or
+    // is detected stale), THEN start the backend. Local backends only; remote
+    // connections returned above and never touch the install tree.
+    await waitForUpdateToFinish()
+
+    const token = crypto.randomBytes(32).toString('base64url')
+    // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
+    const backendArgs = ['serve', '--host', '127.0.0.1', '--port', '0']
+    // Pin the desktop's chosen profile via the global --profile flag. This is
+    // deterministic (it wins over the sticky ~/.hermes/active_profile file) and
+    // resolves HERMES_HOME the same way `hermes -p <name>` does on the CLI. An
+    // unset preference keeps the legacy launch so existing installs are
+    // unaffected.
+    const activeProfile = readActiveDesktopProfile()
     if (activeProfile) {
-      dashboardArgs.unshift("--profile", activeProfile);
+      backendArgs.unshift('--profile', activeProfile)
     }
-    await advanceBootProgress("backend.runtime", "Resolving Zeus runtime", 28);
-    const backend = await ensureRuntime(resolveHermesBackend(dashboardArgs));
-    const hermesCwd = resolveHermesCwd();
-    const webDist = resolveWebDist();
-    const readyFile = backend.readyFile ? makeDashboardReadyFile() : null;
-    await advanceBootProgress("backend.spawn", `Starting Zeus backend via ${backend.label}`, 84);
-    rememberLog(`Starting Zeus backend via ${backend.label}`);
+    await advanceBootProgress('backend.runtime', 'Resolving Hermes runtime', 28)
+    const backend = await ensureRuntime(resolveHermesBackend(backendArgs))
+    // Route old runtimes (no `serve`) through the legacy `dashboard --no-open`.
+    backend.args = getBackendArgsForRuntime(backend)
+    const hermesCwd = resolveHermesCwd()
+    const webDist = resolveWebDist()
+    const readyFile = backend.readyFile ? makeDashboardReadyFile() : null
+
+    await advanceBootProgress('backend.spawn', `Starting Hermes backend via ${backend.label}`, 84)
+    rememberLog(`Starting Hermes backend via ${backend.label}`)
+
     hermesProcess = spawn(
       backend.command,
       backend.args,
@@ -29793,18 +30064,162 @@ ipcMain.handle("hermes:window:openSession", async (_event, sessionId, opts) => {
   if (typeof sessionId !== "string" || !sessionId.trim()) {
     return { ok: false, error: "invalid-session-id" };
   }
-  createSessionWindow(sessionId.trim(), { watch: opts?.watch === true });
-  return { ok: true };
-});
-ipcMain.handle("hermes:window:openNewSession", async () => {
-  createNewSessionWindow();
-  return { ok: true };
-});
-ipcMain.handle("hermes:bootstrap:reset", async () => {
-  rememberLog("[bootstrap] reset requested by renderer; clearing latched failure");
-  await teardownPrimaryBackendAndWait();
-  bootstrapFailure = null;
-  backendStartFailure = null;
+
+  createSessionWindow(sessionId.trim(), { watch: opts?.watch === true })
+
+  return { ok: true }
+})
+ipcMain.handle('hermes:window:openNewSession', async () => {
+  createNewSessionWindow()
+
+  return { ok: true }
+})
+
+// --- Text size (zoom) -------------------------------------------------------
+// The settings UI drives the same clamped zoom scale as the Ctrl/Cmd
+// shortcuts and the View menu. Reads and writes target the asking window.
+ipcMain.handle('hermes:zoom:get', event => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  const level = window && !window.isDestroyed() ? window.webContents.getZoomLevel() : 0
+
+  return { level, percent: zoomLevelToPercent(level) }
+})
+ipcMain.on('hermes:zoom:set-percent', (event, percent) => {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  if (!window || window.isDestroyed()) return
+  setAndPersistZoomLevel(window, percentToZoomLevel(Number(percent)))
+})
+
+// --- Pet overlay (pop-out mascot) -----------------------------------------
+// `request` is `{ bounds, screen }`. A fresh pop-out passes viewport-space
+// bounds (screen=false): convert to screen space by adding the main window's
+// content origin so the pet lands where it sat in-window. A remembered/dragged
+// spot passes screen-space bounds (screen=true) and is used as-is. We return the
+// resolved screen bounds so the renderer can persist exactly where it opened.
+ipcMain.handle('hermes:pet-overlay:open', async (_event, request) => {
+  const bounds = request && request.bounds ? request.bounds : request
+  const isScreen = Boolean(request && request.screen)
+  let screenBounds = bounds
+
+  try {
+    if (bounds && !isScreen && mainWindow && !mainWindow.isDestroyed()) {
+      const content = mainWindow.getContentBounds()
+      screenBounds = {
+        x: content.x + (bounds.x || 0),
+        y: content.y + (bounds.y || 0),
+        width: bounds.width,
+        height: bounds.height
+      }
+    }
+  } catch {
+    // Fall back to raw bounds if the window geometry is unavailable.
+  }
+
+  openPetOverlay(screenBounds)
+
+  return { ok: true, bounds: screenBounds }
+})
+ipcMain.handle('hermes:pet-overlay:close', async () => {
+  closePetOverlay()
+
+  return { ok: true }
+})
+// Drag/resize: the overlay reports new absolute screen bounds (it already knows
+// the pointer's screen coords). Drag keeps the size constant; the wheel-to-scale
+// gesture grows/shrinks it so the sprite is never cropped by the window edge.
+// The window is created non-resizable (no stray edge-drag on the transparent
+// frameless panel), which on Windows/Linux also blocks programmatic setBounds
+// sizing — so briefly flip resizable on whenever the size actually changes.
+ipcMain.on('hermes:pet-overlay:set-bounds', (_event, bounds) => {
+  if (!petOverlayWindow || petOverlayWindow.isDestroyed() || !bounds) {
+    return
+  }
+
+  const win = petOverlayWindow
+  const width = Math.max(80, Math.round(bounds.width))
+  const height = Math.max(80, Math.round(bounds.height))
+  const [curW, curH] = win.getSize()
+  const resizing = width !== curW || height !== curH
+
+  if (resizing && !win.isResizable()) {
+    win.setResizable(true)
+  }
+
+  win.setBounds({ x: Math.round(bounds.x), y: Math.round(bounds.y), width, height })
+
+  if (resizing) {
+    win.setResizable(false)
+  }
+})
+// Click-through: the overlay window is a full rectangle but only the pet pixels
+// should be interactive. The renderer toggles this as the cursor enters/leaves
+// the sprite so transparent margins pass clicks to whatever is behind.
+ipcMain.on('hermes:pet-overlay:ignore-mouse', (_event, ignore) => {
+  if (petOverlayWindow && !petOverlayWindow.isDestroyed()) {
+    petOverlayWindow.setIgnoreMouseEvents(Boolean(ignore), { forward: true })
+  }
+})
+// The overlay is a non-activating panel (focusable:false) so it never steals
+// the app's cmd/alt-tab anchor from the main window. But the pop-up composer
+// needs the keyboard, so the renderer asks us to flip it focusable + focus it
+// while the composer is open, then back to non-activating when it closes.
+ipcMain.on('hermes:pet-overlay:set-focusable', (_event, focusable) => {
+  if (!petOverlayWindow || petOverlayWindow.isDestroyed()) {
+    return
+  }
+
+  petOverlayWindow.setFocusable(Boolean(focusable))
+  if (focusable) {
+    petOverlayWindow.focus()
+  }
+})
+// Main renderer → overlay: forward the latest pet state for the overlay to render.
+ipcMain.on('hermes:pet-overlay:state', (_event, payload) => {
+  if (petOverlayWindow && !petOverlayWindow.isDestroyed()) {
+    petOverlayWindow.webContents.send('hermes:pet-overlay:state', payload)
+  }
+})
+// Overlay → main renderer: control messages (pop back in, composer submit).
+ipcMain.on('hermes:pet-overlay:control', (_event, payload) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
+  // Double-click toggles the app window: hide it away if it's up front, bring it
+  // back if it's minimized/buried. Pure window control — nothing for the
+  // renderer to do, so don't forward it.
+  if (payload && payload.type === 'toggle-app') {
+    if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+      mainWindow.show()
+      mainWindow.focus()
+    } else {
+      mainWindow.minimize()
+    }
+
+    return
+  }
+
+  // The mail icon means "take me to the app": raise the main window (it may be
+  // minimized or buried) before the renderer navigates to the latest thread.
+  if (payload && payload.type === 'open-app') {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.show()
+    mainWindow.focus()
+  }
+
+  mainWindow.webContents.send('hermes:pet-overlay:control', payload)
+})
+ipcMain.handle('hermes:bootstrap:reset', async () => {
+  // Renderer's "Reload and retry" path. Clear the latched failure and
+  // reset connection state so the next startHermes() call restarts the
+  // full backend flow (including a fresh runBootstrap pass).
+  rememberLog('[bootstrap] reset requested by renderer; clearing latched failure')
+  await teardownPrimaryBackendAndWait()
+  bootstrapFailure = null
+  backendStartFailure = null
   bootstrapState = {
     active: false,
     manifest: null,
@@ -30012,10 +30427,17 @@ ipcMain.handle("hermes:api", async (_event, request) => {
   if (rerouted !== void 0) {
     return rerouted;
   }
-  await prepareProfileDeleteRequest(request);
-  const profile = request?.profile;
-  const connection = await ensureBackend(profile);
-  const timeoutMs = resolveTimeoutMs(request?.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS);
+
+  const tornDownProfile = await prepareProfileDeleteRequest(request)
+
+  const profile = request?.profile
+  // After tearing down a backend for profile deletion, route to the primary
+  // backend instead of spawning a fresh pool backend.  A freshly spawned
+  // backend calls ensure_hermes_home() which recreates the profile directory,
+  // defeating the deletion and leaving a zombie process.
+  const routeProfile = tornDownProfile ? null : profile
+  const connection = await ensureBackend(routeProfile)
+  const timeoutMs = resolveTimeoutMs(request?.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS)
   const requestPath = pathWithGlobalRemoteProfile(request.path, profile, {
     globalRemote: globalRemoteActive(),
     profileRemoteOverride: profileHasRemoteOverride(profile)
@@ -31062,19 +31484,10 @@ app.on("before-quit", () => {
   for (const id of [...terminalSessions.keys()]) {
     disposeTerminalSession(id);
   }
-  if (hermesProcess && !hermesProcess.killed) {
-    hermesProcess.kill("SIGTERM");
-  }
-  stopAllPoolBackends();
-});
-app.on("window-all-closed", () => {
-  if (process.platform === "darwin") return;
-  if (trayModule && zeusGeneralPrefs.closeToTray) {
-  } else {
-    app.quit();
-  }
-});
-/*! Bundled license information:
+
+  stopBackendChild(hermesProcess)
+  stopAllPoolBackends()
+})
 
 sax/lib/sax.js:
   (*! http://mths.be/fromcodepoint v0.1.0 by @mathias *)

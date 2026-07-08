@@ -2,7 +2,7 @@
 """OpenClaw -> Hermes migration helper.
 
 This script migrates the parts of an OpenClaw user footprint that map cleanly
-into Zeus, archives selected unmapped docs for manual review, and
+into Hermes, archives selected unmapped docs for manual review, and
 reports exactly what was skipped and why.
 """
 
@@ -404,9 +404,9 @@ def backup_existing(path: Path, backup_root: Path) -> Optional[Path]:
 # like ``openclaw`` → ``hermes`` (so filesystem paths like ``~/.openclaw``
 # become ``~/.hermes`` — the real Hermes home — not the broken ``~/.Hermes``).
 _REBRAND_PATTERNS: List[Tuple[re.Pattern, str]] = [
-    (re.compile(r'\bOpen[\s-]?Claw\b', re.IGNORECASE), 'Zeus'),
-    (re.compile(r'\bClawdBot\b', re.IGNORECASE), 'Zeus'),
-    (re.compile(r'\bMoltBot\b', re.IGNORECASE), 'Zeus'),
+    (re.compile(r'\bOpen[\s-]?Claw\b', re.IGNORECASE), 'Hermes'),
+    (re.compile(r'\bClawdBot\b', re.IGNORECASE), 'Hermes'),
+    (re.compile(r'\bMoltBot\b', re.IGNORECASE), 'Hermes'),
 ]
 
 
@@ -1062,7 +1062,7 @@ class Migrator:
             warnings.append(
                 "API keys and other credentials were detected but not imported. "
                 "Re-run with --migrate-secrets to copy supported keys into the "
-                "Zeus env file."
+                "Hermes env file."
             )
         return warnings
 
@@ -1228,7 +1228,7 @@ class Migrator:
             self.record("command-allowlist", source, destination, "skipped", "No allowlist patterns found")
             return
         if not destination.exists():
-            self.record("command-allowlist", source, destination, "skipped", "Zeus config.yaml does not exist yet")
+            self.record("command-allowlist", source, destination, "skipped", "Hermes config.yaml does not exist yet")
             return
 
         config = load_yaml_file(destination)
@@ -2893,7 +2893,7 @@ class Migrator:
             "## IMPORTANT: Archive the OpenClaw Directory",
             "",
             "After migration, your OpenClaw directory still exists on disk with workspace",
-            "state files (todo.json, sessions, logs). If the Zeus discovers these",
+            "state files (todo.json, sessions, logs). If the Hermes discovers these",
             "directories, it may read/write to them instead of the Hermes state, causing",
             "confusion (e.g., cron jobs reading a different todo list than interactive sessions).",
             "",
@@ -2958,9 +2958,9 @@ class Migrator:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Migrate OpenClaw user state into Zeus.")
+    parser = argparse.ArgumentParser(description="Migrate OpenClaw user state into Hermes.")
     parser.add_argument("--source", default=str(Path.home() / ".openclaw"), help="OpenClaw home directory")
-    parser.add_argument("--target", default=os.environ.get("HERMES_HOME") or str(Path.home() / ".hermes"), help="Zeus home directory")
+    parser.add_argument("--target", default=os.environ.get("HERMES_HOME") or str(Path.home() / ".hermes"), help="Hermes home directory")
     parser.add_argument(
         "--workspace-target",
         help="Optional workspace root where the workspace instructions file should be copied",
@@ -3043,16 +3043,16 @@ def main() -> int:
     total = sum(s.values())
 
     print()
-    print(f"  ╔══════════════════════════════════════════════════════╗")
-    print(f"  ║   OpenClaw -> Zeus Migration   [{mode_label:>8s}]   ║")
-    print(f"  ╠══════════════════════════════════════════════════════╣")
+    print("  ╔══════════════════════════════════════════════════════╗")
+    print(f"  ║   OpenClaw -> Hermes Migration   [{mode_label:>8s}]   ║")
+    print("  ╠══════════════════════════════════════════════════════╣")
     print(f"  ║  Source:  {str(report['source_root'])[:42]:<42s}  ║")
     print(f"  ║  Target:  {str(report['target_root'])[:42]:<42s}  ║")
-    print(f"  ╠══════════════════════════════════════════════════════╣")
+    print("  ╠══════════════════════════════════════════════════════╣")
     print(f"  ║  ✔ Migrated:  {s.get('migrated', 0):>3d}    ◆ Archived:  {s.get('archived', 0):>3d}        ║")
     print(f"  ║  ⊘ Skipped:   {s.get('skipped', 0):>3d}    ⚠ Conflicts: {s.get('conflict', 0):>3d}        ║")
     print(f"  ║  ✖ Errors:    {s.get('error', 0):>3d}    Total:       {total:>3d}        ║")
-    print(f"  ╚══════════════════════════════════════════════════════╝")
+    print("  ╚══════════════════════════════════════════════════════╝")
 
     # Show what was migrated
     migrated = [i for i in items if i["status"] == "migrated"]

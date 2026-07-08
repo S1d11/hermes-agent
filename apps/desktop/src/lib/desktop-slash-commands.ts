@@ -35,6 +35,7 @@ export type DesktopActionId =
   | 'cron'
   | 'handoff'
   | 'help'
+  | 'journey'
   | 'new'
   | 'profile'
   | 'skin'
@@ -44,7 +45,7 @@ export type DesktopActionId =
 /** A command fulfilled by opening a desktop overlay picker. */
 export type DesktopPickerId = 'model' | 'session'
 
-/** Why a known Zeus command has no desktop UI surface. */
+/** Why a known Hermes command has no desktop UI surface. */
 export type DesktopUnavailableReason = 'advanced' | 'messaging' | 'settings' | 'terminal'
 
 /**
@@ -112,7 +113,7 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
     surface: action('handoff'),
     args: true
   },
-  { name: '/profile', description: 'Switch the active Zeus profile', surface: action('profile') },
+  { name: '/profile', description: 'Switch the active Hermes profile', surface: action('profile') },
   { name: '/skin', description: 'Switch desktop theme or cycle to the next one', surface: action('skin'), args: true },
   { name: '/title', description: 'Rename the current session', surface: action('title') },
   {
@@ -130,10 +131,17 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
     args: true
   },
   {
+  {
     name: '/cron',
     description: 'Open the cron jobs overlay [list|trigger|pause|resume]',
     surface: action('cron'),
     args: true
+  },
+  {
+    name: '/journey',
+    description: 'Open the memory graph — skills + memories over time',
+    aliases: ['/learning', '/memory-graph'],
+    surface: action('journey')
   },
 
   // Overlay pickers
@@ -168,7 +176,7 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
   { name: '/tools', description: 'List or toggle tools available to the agent', surface: exec(), args: true },
   { name: '/undo', description: 'Remove the last user/assistant exchange', surface: exec() },
   { name: '/usage', description: 'Show token usage for this session', surface: exec() },
-  { name: '/version', description: 'Show Zeus Agent version', surface: exec() },
+  { name: '/version', description: 'Show Hermes Agent version', surface: exec() },
 
   // No desktop surface, but carry an alias (underscore spelling variants).
   { name: '/reload-mcp', aliases: ['/reload_mcp'], surface: unavailable('advanced') },
@@ -267,7 +275,7 @@ function isKnownHermesSlashCommand(command: string): boolean {
 
 /**
  * An "extension" command is anything the backend surfaces that is NOT one of
- * Zeus' built-in slash commands — i.e. skill commands (`/gif-search`,
+ * Hermes' built-in slash commands — i.e. skill commands (`/gif-search`,
  * `/codex`, …) and user-defined quick commands. These are user-activated, so
  * they appear in the desktop slash palette and execute when typed.
  */

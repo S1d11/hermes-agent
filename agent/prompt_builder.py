@@ -88,12 +88,15 @@ def _find_hermes_md(cwd: Path) -> Optional[Path]:
     stop_at = _find_git_root(cwd)
     current = cwd.resolve()
 
-    for directory in [current, *current.parents]:
+    # When there is no git root, only check cwd itself – walking parents
+    # could pick up a .hermes.md planted in /tmp, /home, etc.
+    search_dirs = [current, *current.parents] if stop_at else [current]
+
+    for directory in search_dirs:
         for name in _HERMES_MD_NAMES:
             candidate = directory / name
             if candidate.is_file():
                 return candidate
-        # Stop walking at the git root (or filesystem root).
         if stop_at and directory == stop_at:
             break
     return None
@@ -121,7 +124,7 @@ def _strip_yaml_frontmatter(content: str) -> str:
 # =========================================================================
 
 DEFAULT_AGENT_IDENTITY = (
-    "You are Zeus, an intelligent AI assistant. "
+    "You are Hermes, an intelligent AI assistant. "
     "You are helpful, knowledgeable, and direct. You assist users with a wide "
     "range of tasks including answering questions, writing and editing code, "
     "analyzing information, creative work, and executing actions via your tools. "
@@ -131,10 +134,10 @@ DEFAULT_AGENT_IDENTITY = (
 )
 
 HERMES_AGENT_HELP_GUIDANCE = (
-    "You run on Zeus. When the user needs help with "
-    "Zeus itself — configuring, setting up, using, extending, or troubleshooting "
+    "You run on Hermes. When the user needs help with "
+    "Hermes itself — configuring, setting up, using, extending, or troubleshooting "
     "it — or when you need to understand your own features, tools, or capabilities, "
-    "the documentation at https://github.com/S1d11/zeus is your "
+    "the documentation at https://github.com/S1d11/hermes-agent is your "
     "authoritative reference and always holds the latest, most up-to-date "
     "information. Load the `hermes-agent` skill with skill_view(name='hermes-agent') "
     "for additional guidance and proven workflows, but treat the docs as the source "
@@ -596,7 +599,7 @@ def format_steer_marker(steer_text: str) -> str:
 
 STEER_CHANNEL_NOTE = (
     "## Mid-turn user steering\n"
-    "While you work, the user can send an out-of-band message that Zeus "
+    "While you work, the user can send an out-of-band message that Hermes "
     "appends to the end of a tool result, wrapped exactly as:\n"
     f"{STEER_MARKER_OPEN}\n<their message>\n{STEER_MARKER_CLOSE}\n"
     "Text inside that marker is a genuine message from the user delivered "
@@ -731,7 +734,7 @@ PLATFORM_HINTS = {
         "default-deliver cron job will message them in this session."
     ),
     "tui": (
-        "You are running in the Zeus terminal UI (TUI). "
+        "You are running in the Hermes terminal UI (TUI). "
         "Cron jobs scheduled from this session are LOCAL-ONLY: their output is "
         "saved (viewable via cronjob action='list') but is NOT delivered back "
         "into this TUI session — there is no live-delivery channel here. If the "
@@ -739,6 +742,17 @@ PLATFORM_HINTS = {
         "target a gateway-connected messaging platform (e.g. deliver='telegram' "
         "or 'all'). Do not promise the user that a deliver='origin' or "
         "default-deliver cron job will message them in this session."
+    ),
+    "desktop": (
+        "You are chatting inside the Hermes desktop app — a graphical chat "
+        "surface, not a terminal. Use markdown freely: it renders with full "
+        "GitHub flavor (tables, code blocks with syntax highlighting, math "
+        "via $...$, task lists, blockquote callouts). "
+        "You can deliver files natively — include MEDIA:/absolute/path/to/file "
+        "in your response. Images (.png, .jpg, .webp) appear inline, audio and "
+        "video play inline, and other files arrive as download links. You can "
+        "also include image URLs in markdown format ![alt](url) and they "
+        "render inline as photos."
     ),
     "sms": (
         "You are communicating via SMS. Keep responses concise and use plain text "
@@ -834,7 +848,7 @@ PLATFORM_HINTS = {
         "brief and natural."
     ),
     "webui": (
-        "You are in the Zeus WebUI, a browser-based chat interface. "
+        "You are in the Hermes WebUI, a browser-based chat interface. "
         "Full Markdown rendering is supported — headings, bold, italic, code "
         "blocks, tables, math (LaTeX), and Mermaid diagrams all render natively. "
         "To display local or remote media/files inline, include "
@@ -1105,8 +1119,8 @@ def build_environment_hints() -> str:
                 f"Terminal backend: {backend}. Your `terminal`, `read_file`, "
                 f"`write_file`, `patch`, and `search_files` tools all operate "
                 f"inside this {backend} environment — NOT on the machine "
-                f"where Zeus itself is running. The host OS, home, and cwd "
-                f"of the Zeus process are irrelevant; only the following "
+                f"where Hermes itself is running. The host OS, home, and cwd "
+                f"of the Hermes process are irrelevant; only the following "
                 f"backend state matters:\n{probe}"
             )
         else:
@@ -1116,7 +1130,7 @@ def build_environment_hints() -> str:
             hints.append(
                 f"Terminal backend: {backend}. Your `terminal`, `read_file`, "
                 f"`write_file`, `patch`, and `search_files` tools all operate "
-                f"inside {description} — NOT on the machine where Zeus "
+                f"inside {description} — NOT on the machine where Hermes "
                 f"itself runs. The backend probe didn't respond at "
                 f"prompt-build time, so the sandbox's current user, $HOME, "
                 f"and working directory are unknown from here. If you need "
@@ -1131,7 +1145,7 @@ def build_environment_hints() -> str:
     _in_desktop = (os.getenv("HERMES_DESKTOP") or "").strip().lower() in _truthy
     _in_desktop_term = (os.getenv("HERMES_DESKTOP_TERMINAL") or "").strip().lower() in _truthy
     if _in_desktop or _in_desktop_term:
-        _desktop_hint = "Runtime surface: you're running inside the Zeus desktop GUI app."
+        _desktop_hint = "Runtime surface: you're running inside the Hermes desktop GUI app."
         if _in_desktop_term:
             _desktop_hint += (
                 " You're in its embedded terminal pane, beside the GUI chat — the user can "
@@ -1653,7 +1667,7 @@ def build_skills_system_prompt(
             "for tasks like code review, planning, and testing — load them even for tasks you "
             "already know how to do, because the skill defines how it should be done here.\n"
             "Whenever the user asks you to configure, set up, install, enable, disable, modify, "
-            "or troubleshoot Zeus itself — its CLI, config, models, providers, tools, "
+            "or troubleshoot Hermes itself — its CLI, config, models, providers, tools, "
             "skills, voice, gateway, plugins, or any feature — load the `hermes-agent` skill "
             "first. It has the actual commands (e.g. `hermes config set …`, `hermes tools`, "
             "`hermes setup`) so you don't have to guess or invent workarounds.\n"

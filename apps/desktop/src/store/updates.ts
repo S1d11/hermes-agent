@@ -115,6 +115,24 @@ function isSkewToastSnoozed(): boolean {
   return Number.isFinite(until) && Date.now() < until
 }
 
+const INSTALL_METHOD_TOAST_ID = 'install-method-not-supported'
+// Same time-based snooze pattern as the update/skew toasts: the warning is
+// re-derived from every session.info (session.create/resume/activate all
+// route through applyRuntimeInfo), so without a snooze it would re-pop on
+// every session switch even right after the user dismissed it.
+const INSTALL_METHOD_TOAST_SNOOZE_KEY = 'hermes:install-method-toast-snooze-until'
+const INSTALL_METHOD_TOAST_COOLDOWN_MS = 24 * 60 * 60 * 1000
+
+function snoozeInstallMethodToast(): void {
+  persistString(INSTALL_METHOD_TOAST_SNOOZE_KEY, String(Date.now() + INSTALL_METHOD_TOAST_COOLDOWN_MS))
+}
+
+function isInstallMethodToastSnoozed(): boolean {
+  const until = Number(storedString(INSTALL_METHOD_TOAST_SNOOZE_KEY) || 0)
+
+  return Number.isFinite(until) && Date.now() < until
+}
+
 /**
  * Guard against a desktop GUI talking to a backend that predates its contract
  * (e.g. a bb/gui-built app pointed at a `main` checkout). Rather than failing
@@ -152,6 +170,27 @@ export function reportBackendContract(contract: number | undefined): void {
     message: translateNow('notifications.backendOutOfDateMessage'),
     onDismiss: () => snoozeSkewToast(),
     title: translateNow('notifications.backendOutOfDateTitle')
+  })
+}
+
+export function reportInstallMethodWarning(message: string | undefined): void {
+  if (!message) {
+    dismissNotification(INSTALL_METHOD_TOAST_ID)
+
+    return
+  }
+
+  if (isInstallMethodToastSnoozed()) {
+    return
+  }
+
+  notify({
+    durationMs: 0,
+    id: INSTALL_METHOD_TOAST_ID,
+    kind: 'warning',
+    message,
+    onDismiss: () => snoozeInstallMethodToast(),
+    title: translateNow('notifications.installMethodUnsupportedTitle')
   })
 }
 
@@ -196,6 +235,7 @@ export function maybeNotifyUpdateAvailable(status: DesktopUpdateStatus | null) {
       }
     },
     durationMs: 0,
+    icon: 'gift',
     id: UPDATE_TOAST_ID,
     kind: 'info',
     message: translateNow('notifications.updateReadyMessage', behind),
@@ -418,6 +458,10 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
           id: UPDATE_TOAST_ID,
           kind: 'success',
           message: translateNow('updates.manualPickedUp'),
+          // No action button here, but it's still update-lifecycle news — keep
+          // it with the other update toasts instead of the ambient bottom-right
+          // stack.
+          placement: 'default',
           title: translateNow('updates.allSetTitle')
         })
       } else {
@@ -634,6 +678,7 @@ export function startUpdatePoller(): void {
   }
 
   pollerStarted = true
+  void checkUpdates()
   void checkBackendUpdates()
   void refreshDesktopVersion()
   bridge.onProgress(ingestProgress)
@@ -656,6 +701,7 @@ export function startUpdatePoller(): void {
   window.addEventListener('focus', onFocus)
   backgroundTimer = setInterval(
     () => {
+      void checkUpdates()
       void checkBackendUpdates()
     },
     30 * 60 * 1000
@@ -683,6 +729,7 @@ function onFocus() {
   }
 
   lastFocusAt = now
+  void checkUpdates()
   void checkBackendUpdates()
   void refreshDesktopVersion()
 }
