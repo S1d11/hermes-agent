@@ -31,6 +31,7 @@ import {
 import { type Translations, useI18n } from '@/i18n'
 import { AlertTriangle } from '@/lib/icons'
 import { asText } from '@/lib/text'
+import { cn } from '@/lib/utils'
 import { $cronFocusJobId, $cronJobs, setCronFocusJobId, setCronJobs, updateCronJobs } from '@/store/cron'
 import { notify, notifyError } from '@/store/notifications'
 

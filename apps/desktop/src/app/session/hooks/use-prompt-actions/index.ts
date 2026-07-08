@@ -157,8 +157,10 @@ interface PromptActionsOptions {
   activeSessionIdRef: MutableRefObject<string | null>
   busyRef: MutableRefObject<boolean>
   branchCurrentSession: () => Promise<boolean>
+  changeSessionCwd: (cwd: string) => Promise<void> | void
   createBackendSessionForSend: (preview?: string | null) => Promise<string | null>
   handleSkinCommand: (arg: string) => string
+  openCronOverlay: () => void
   openMemoryGraph: () => void
   refreshSessions: () => Promise<void>
   requestGateway: <T>(method: string, params?: Record<string, unknown>, timeoutMs?: number) => Promise<T>
@@ -185,8 +187,10 @@ export function usePromptActions({
   activeSessionIdRef,
   busyRef,
   branchCurrentSession,
+  changeSessionCwd,
   createBackendSessionForSend,
   handleSkinCommand,
+  openCronOverlay,
   openMemoryGraph,
   refreshSessions,
   requestGateway,
@@ -446,10 +450,12 @@ export function usePromptActions({
     appendSessionTextMessage,
     branchCurrentSession,
     busyRef,
+    changeSessionCwd,
     copy,
     createBackendSessionForSend,
     handleSkinCommand,
     handoffSession,
+    openCronOverlay,
     openMemoryGraph,
     refreshSessions,
     requestGateway,

@@ -32,9 +32,7 @@ import {
   onComposerFocusRequest,
   onComposerInsertRefsRequest,
   onComposerInsertRequest,
-  onComposerSubmitRequest,
-  onComposerVoiceToggleRequest,
-  onComposerVoiceStartRequest
+  onComposerSubmitRequest
 } from './focus'
 import { HelpHint } from './help-hint'
 import { useAtCompletions } from './hooks/use-at-completions'
@@ -661,6 +659,8 @@ export function ChatBar({
     endConversation,
     handleToggleAutoSpeak,
     startConversation,
+    startVoiceConversation,
+    toggleVoiceConversation,
     voiceActivityState,
     voiceConversationActive,
     voiceStatus
@@ -675,34 +675,6 @@ export function ChatBar({
     onTranscribeAudio,
     sessionId
   })
-
-  // The `composer.voice` hotkey (Ctrl+B) toggles the conversation. Starting
-  // with STT unconfigured lets the conversation surface its own "configure
-  // speech-to-text" notice rather than silently no-opping.
-  const toggleVoiceConversation = useCallback(() => {
-    if (disabled) {
-      return
-    }
-
-    if (voiceConversationActive) {
-      setVoiceConversationActive(false)
-      void conversation.end()
-    } else {
-      setVoiceConversationActive(true)
-    }
-  }, [conversation, disabled, voiceConversationActive])
-
-  useEffect(() => onComposerVoiceToggleRequest(toggleVoiceConversation), [toggleVoiceConversation])
-
-  // Wake word: start voice mode without toggling it off if already active.
-  const startVoiceConversation = useCallback(() => {
-    if (disabled) return
-    if (!voiceConversationActive) {
-      setVoiceConversationActive(true)
-    }
-  }, [disabled, voiceConversationActive])
-
-  useEffect(() => onComposerVoiceStartRequest(startVoiceConversation), [startVoiceConversation])
 
   const contextMenu = (
     <ContextMenu

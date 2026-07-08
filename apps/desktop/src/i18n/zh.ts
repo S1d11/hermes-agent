@@ -309,27 +309,33 @@ export const zh: Translations = {
       intro: '原生桌面通知，区别于应用内提示。设置按设备保存，每台电脑各自独立。',
       enableAll: '启用通知',
       enableAllDesc: '总开关。关闭后将静音下方所有通知。',
+      enableAllRec: '推荐',
       focusedHint: '完成提醒仅在 Hermes 处于后台时触发。',
       kinds: {
         approval: {
           label: '需要批准',
-          description: '有命令正在等待你批准或拒绝。'
+          description: '有命令正在等待你批准或拒绝。',
+          rec: '推荐'
         },
         input: {
           label: '需要输入',
-          description: 'Hermes 提出了问题，或需要密码或密钥。'
+          description: 'Hermes 提出了问题，或需要密码或密钥。',
+          rec: '推荐'
         },
         turnDone: {
           label: '回复就绪',
-          description: 'Hermes 在后台时完成了一轮对话。'
+          description: 'Hermes 在后台时完成了一轮对话。',
+          rec: '推荐'
         },
         turnError: {
           label: '本轮失败',
-          description: '本轮以错误结束。'
+          description: '本轮以错误结束。',
+          rec: '推荐'
         },
         backgroundDone: {
           label: '后台任务完成',
-          description: '后台终端命令已完成。'
+          description: '后台终端命令已完成。',
+          rec: '可选'
         }
       },
       test: '发送测试通知',
@@ -339,7 +345,8 @@ export const zh: Translations = {
       testUnsupported: '此系统不支持原生通知。',
       completionSoundTitle: '完成提示音',
       completionSoundDesc: '智能体回合结束时播放。可在此选择预设并预览。',
-      completionSoundPreview: '预览'
+      completionSoundPreview: '预览',
+      completionSoundRec: '推荐'
     },
     sections: {
       model: '模型',
@@ -350,6 +357,55 @@ export const zh: Translations = {
       memory: '记忆与上下文',
       voice: '语音',
       advanced: '高级'
+    },
+    sectionGroups: {
+      tts: '文字转语音',
+      stt: '语音转文字',
+      voiceMode: '语音模式'
+    },
+    providerBadges: {
+      'on-device': '本地',
+      cloud: '云端'
+    },
+    providerGroups: {
+      'on-device': '本地',
+      cloud: '云端',
+      onDeviceShort: '本地',
+      cloudShort: '云端'
+    },
+    general: {
+      title: '通用',
+      intro: '启动、窗口行为、语音和更新的全局偏好设置。',
+      startupSection: '启动',
+      autoLaunch: '开机自启',
+      autoLaunchDesc: '登录计算机时自动打开 Hermes。',
+      autoLaunchRec: '推荐',
+      startMinimized: '启动时最小化',
+      startMinimizedDesc: '启动到系统托盘而非打开窗口。',
+      startMinimizedRec: '可选',
+      relaunchLastSession: '恢复上次会话',
+      relaunchLastSessionDesc: '启动时自动加载最近的会话。',
+      relaunchLastSessionRec: '可选',
+      windowSection: '窗口',
+      closeToTray: '关闭到托盘',
+      closeToTrayDesc: '关闭窗口时将 Hermes 保留在托盘中运行。',
+      closeToTrayRec: '推荐',
+      minimizeToTray: '最小化到托盘',
+      minimizeToTrayDesc: '最小化到系统托盘而非任务栏。',
+      minimizeToTrayRec: '可选',
+      voiceSection: '语音',
+      wakeWord: '唤醒词（"Hey Hermes"）',
+      wakeWordDesc: '监听唤醒词以免提开始对话。',
+      wakeWordRec: '可选',
+      updatesSection: '更新',
+      autoUpdates: '自动检查更新',
+      autoUpdatesDesc: '定期在后台检查 Hermes 新版本。',
+      autoUpdatesRec: '推荐',
+      checking: '正在检查更新…',
+      checkFailed: '更新检查失败。',
+      updateAvailable: (count: number) => `有 ${count} 个可用更新`,
+      upToDate: '你已是最新版本。',
+      checkNow: '立即检查'
     },
     searchPlaceholder: {
       about: '关于 Hermes Desktop',
@@ -398,6 +454,16 @@ export const zh: Translations = {
       installed: name => `已安装「${name}」。`,
       removeTheme: '移除主题',
       importedBadge: '已导入',
+      themeRec: '选择符合你喜好的主题——它会跟随上方的明暗切换。',
+      translucencyRec: '半透明效果在 macOS 上最佳；在 Windows 上取决于合成器设置。',
+      toolViewRec: '紧凑模式在屏幕上显示更多内容；展开模式更易于一眼浏览。',
+      embedsRec: '「询问」是安全的默认值——Hermes 在渲染来自新来源的富嵌入内容前会先确认。',
+      terminalPositionTitle: '终端位置',
+      terminalPositionDesc: '终端面板在工作区中的停靠位置。',
+      terminalPositionRec: '「自动」会根据窗口大小选择最佳位置；如需固定布局可手动覆盖。',
+      terminalPositionAuto: '自动',
+      terminalPositionSide: '侧边',
+      terminalPositionBottom: '底部',
       pet: {
         title: '宠物',
         intro:
@@ -857,6 +923,8 @@ export const zh: Translations = {
       change: '更改',
       autoUseMain: '自动 · 使用主模型',
       providerDefault: '(提供方默认)',
+      mainModelRec: '推荐',
+      auxiliaryRec: '可选',
       tasks: {
         vision: { label: '视觉', hint: '图片分析' },
         web_extract: { label: '网页提取', hint: '页面总结' },
@@ -1202,7 +1270,8 @@ export const zh: Translations = {
       settings: { title: '设置', detail: '配置 Hermes 桌面端' },
       skills: { title: '技能与工具', detail: '启用技能、工具集与提供方' },
       messaging: { title: '消息平台', detail: '配置 Telegram、Slack、Discord 等' },
-      artifacts: { title: '产物', detail: '浏览生成的输出' }
+      artifacts: { title: '产物', detail: '浏览生成的输出' },
+      connections: { title: '连接', detail: '管理 MCP 服务器与集成' }
     },
     sectionEntries: {
       sessions: { title: '会话面板', detail: '搜索、置顶与管理会话' },
@@ -1615,6 +1684,7 @@ export const zh: Translations = {
     customHint: 'Cron 表达式，或类似"每小时""工作日上午 9 点"的短语。',
     optional: '可选',
     promptScheduleRequired: '提示词和排程为必填项。',
+    invalidSchedule: '无效的排程表达式',
     saveChanges: '保存更改',
     createAction: '创建定时任务'
   },
@@ -1652,6 +1722,50 @@ export const zh: Translations = {
     chat: '对话',
     copyUrl: '复制 URL',
     copyPath: '复制路径'
+  },
+
+  connections: {
+    search: '搜索连接…',
+    refresh: '刷新连接',
+    loading: '正在加载连接…',
+    loadFailed: '连接加载失败',
+    installedSection: '已安装的服务器',
+    noServers: '尚未安装 MCP 服务器。在下方目录中浏览并添加。',
+    catalogSection: '目录',
+    noCatalogEntries: '没有匹配搜索的目录条目。',
+    install: '安装',
+    reinstall: '重新安装',
+    installing: '安装中…',
+    installed: name => `已安装“${name}”。`,
+    installFailed: name => `无法安装“${name}”。`,
+    installingInBackground: name => `正在后台安装“${name}”…`,
+    installBackgroundDetail: '安装运行期间你可以继续使用 Hermes。稍后回来查看。',
+    restartToActivate: '重启网关以激活此服务器。',
+    restartToApply: '重启网关以应用更改。',
+    serverEnabled: name => `已启用“${name}”。`,
+    serverDisabled: name => `已禁用“${name}”。`,
+    serverRemoved: name => `已移除“${name}”。`,
+    failedToggle: name => `无法切换“${name}”。`,
+    failedRemove: name => `无法移除“${name}”。`,
+    remove: '移除服务器',
+    cancel: '取消',
+    source: '来源',
+    needsInstall: '需要安装',
+    installedBadge: '已安装',
+    authType: { oauth: 'OAuth', api_key: 'API 密钥', none: '无认证' },
+    requiredCredentials: '必需的凭据',
+    optionalCredentials: '可选的凭据',
+    oauthHint: '安装后你将被重定向到提供方进行登录。',
+    oauthConnect: '连接',
+    oauthReconnect: '重新连接',
+    oauthDisconnect: '断开连接',
+    oauthAuthenticated: '已认证',
+    oauthNotAuthenticated: '未认证',
+    oauthLoginSuccess: '已登录',
+    oauthLoginFailed: '登录失败',
+    oauthLogoutSuccess: '已登出',
+    oauthLogoutFailed: '登出失败',
+    toolsCount: count => `${count} 个工具`
   },
 
   sidebar: {

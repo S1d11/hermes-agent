@@ -319,27 +319,33 @@ export const en: Translations = {
         'Native desktop notifications, separate from in-app toasts. These are device-local — each computer keeps its own settings.',
       enableAll: 'Enable notifications',
       enableAllDesc: 'Master switch. Turn this off to silence every notification below.',
+      enableAllRec: 'Recommended',
       focusedHint: 'Completion alerts only fire while Hermes is in the background.',
       kinds: {
         approval: {
           label: 'Approval needed',
-          description: 'A command is waiting for you to approve or reject it.'
+          description: 'A command is waiting for you to approve or reject it.',
+          rec: 'Recommended'
         },
         input: {
           label: 'Input needed',
-          description: 'Hermes asked a question or needs a password or secret.'
+          description: 'Hermes asked a question or needs a password or secret.',
+          rec: 'Recommended'
         },
         turnDone: {
           label: 'Response ready',
-          description: 'A turn finished while Hermes was in the background.'
+          description: 'A turn finished while Hermes was in the background.',
+          rec: 'Recommended'
         },
         turnError: {
           label: 'Turn failed',
-          description: 'A turn ended with an error.'
+          description: 'A turn ended with an error.',
+          rec: 'Recommended'
         },
         backgroundDone: {
           label: 'Background task finished',
-          description: 'A backgrounded terminal command completed.'
+          description: 'A backgrounded terminal command completed.',
+          rec: 'Optional'
         }
       },
       test: 'Send test notification',
@@ -349,7 +355,8 @@ export const en: Translations = {
       testUnsupported: 'This system does not support native notifications.',
       completionSoundTitle: 'Completion Sound',
       completionSoundDesc: 'Plays when an agent turn finishes. Pick a preset and preview it here.',
-      completionSoundPreview: 'Preview'
+      completionSoundPreview: 'Preview',
+      completionSoundRec: 'Recommended'
     },
     sections: {
       model: 'Model',
@@ -360,6 +367,55 @@ export const en: Translations = {
       memory: 'Memory & Context',
       voice: 'Voice',
       advanced: 'Advanced'
+    },
+    sectionGroups: {
+      tts: 'Text-to-Speech',
+      stt: 'Speech-to-Text',
+      voiceMode: 'Voice Mode'
+    },
+    providerBadges: {
+      'on-device': 'On-device',
+      cloud: 'Cloud'
+    },
+    providerGroups: {
+      'on-device': 'On-device',
+      cloud: 'Cloud',
+      onDeviceShort: 'On-device',
+      cloudShort: 'Cloud'
+    },
+    general: {
+      title: 'General',
+      intro: 'App-wide preferences for startup, window behavior, voice, and updates.',
+      startupSection: 'Startup',
+      autoLaunch: 'Launch on startup',
+      autoLaunchDesc: 'Open Hermes automatically when you sign in to your computer.',
+      autoLaunchRec: 'Recommended',
+      startMinimized: 'Start minimized',
+      startMinimizedDesc: 'Open to the system tray instead of a window.',
+      startMinimizedRec: 'Optional',
+      relaunchLastSession: 'Reopen last session',
+      relaunchLastSessionDesc: 'Automatically load your most recent session on launch.',
+      relaunchLastSessionRec: 'Optional',
+      windowSection: 'Window',
+      closeToTray: 'Close to tray',
+      closeToTrayDesc: 'Keep Hermes running in the tray when the window is closed.',
+      closeToTrayRec: 'Recommended',
+      minimizeToTray: 'Minimize to tray',
+      minimizeToTrayDesc: 'Minimize to the system tray instead of the taskbar.',
+      minimizeToTrayRec: 'Optional',
+      voiceSection: 'Voice',
+      wakeWord: 'Wake word ("Hey Hermes")',
+      wakeWordDesc: 'Listen for a wake word to start a conversation hands-free.',
+      wakeWordRec: 'Optional',
+      updatesSection: 'Updates',
+      autoUpdates: 'Check for updates automatically',
+      autoUpdatesDesc: 'Periodically check for new Hermes releases in the background.',
+      autoUpdatesRec: 'Recommended',
+      checking: 'Checking for updates...',
+      checkFailed: 'Update check failed.',
+      updateAvailable: (count: number) => `${count} update${count === 1 ? '' : 's'} available`,
+      upToDate: 'You are on the latest version.',
+      checkNow: 'Check now'
     },
     searchPlaceholder: {
       about: 'About Hermes Desktop',
@@ -411,6 +467,16 @@ export const en: Translations = {
       installed: name => `Installed “${name}”.`,
       removeTheme: 'Remove theme',
       importedBadge: 'Imported',
+      themeRec: 'Pick a theme that matches your vibe — it follows the Light/Dark toggle above.',
+      translucencyRec: 'Translucency looks best on macOS; on Windows it depends on your compositor settings.',
+      toolViewRec: 'Compact shows more per screen; expanded is easier to read at a glance.',
+      embedsRec: 'Ask is the safe default — Hermes checks before rendering rich embeds from new sources.',
+      terminalPositionTitle: 'Terminal position',
+      terminalPositionDesc: 'Where the terminal panel docks inside the workspace.',
+      terminalPositionRec: 'Auto picks the best spot for your window size; override it if you prefer a fixed layout.',
+      terminalPositionAuto: 'Auto',
+      terminalPositionSide: 'Side',
+      terminalPositionBottom: 'Bottom',
       pet: {
         title: 'Pet',
         intro:
@@ -669,6 +735,8 @@ export const en: Translations = {
       change: 'Change',
       autoUseMain: 'auto · use main model',
       providerDefault: '(provider default)',
+      mainModelRec: 'Recommended',
+      auxiliaryRec: 'Optional',
       tasks: {
         vision: { label: 'Vision', hint: 'Image analysis' },
         web_extract: { label: 'Web extract', hint: 'Page summarization' },
@@ -1022,7 +1090,8 @@ export const en: Translations = {
       settings: { title: 'Settings', detail: 'Configure Hermes desktop' },
       skills: { title: 'Capabilities', detail: 'Skills, tools, and MCP servers' },
       messaging: { title: 'Messaging', detail: 'Set up Telegram, Slack, Discord, and more' },
-      artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' }
+      artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' },
+      connections: { title: 'Connections', detail: 'Manage MCP servers and integrations' }
     },
     sectionEntries: {
       sessions: { title: 'Sessions panel', detail: 'Search, pin, and manage sessions' },
@@ -1438,6 +1507,7 @@ export const en: Translations = {
     customHint: 'Cron expression, or phrases like "every hour" or "weekdays at 9am".',
     optional: 'Optional',
     promptScheduleRequired: 'Prompt and schedule are required.',
+    invalidSchedule: 'Invalid schedule expression',
     saveChanges: 'Save changes',
     createAction: 'Create cron'
   },
@@ -1475,6 +1545,54 @@ export const en: Translations = {
     chat: 'Chat',
     copyUrl: 'Copy URL',
     copyPath: 'Copy path'
+  },
+
+  connections: {
+    search: 'Search connections...',
+    refresh: 'Refresh connections',
+    loading: 'Loading connections…',
+    loadFailed: 'Connections failed to load',
+    installedSection: 'Installed servers',
+    noServers: 'No MCP servers installed yet. Browse the catalog below to add one.',
+    catalogSection: 'Catalog',
+    noCatalogEntries: 'No catalog entries matched your search.',
+    install: 'Install',
+    reinstall: 'Reinstall',
+    installing: 'Installing…',
+    installed: name => `Installed “${name}”.`,
+    installFailed: name => `Could not install “${name}”.`,
+    installingInBackground: name => `Installing “${name}” in the background…`,
+    installBackgroundDetail: 'You can keep using Hermes while the install runs. Check back shortly.',
+    restartToActivate: 'Restart the gateway to activate this server.',
+    restartToApply: 'Restart the gateway to apply changes.',
+    serverEnabled: name => `Enabled “${name}”.`,
+    serverDisabled: name => `Disabled “${name}”.`,
+    serverRemoved: name => `Removed “${name}”.`,
+    failedToggle: name => `Could not toggle “${name}”.`,
+    failedRemove: name => `Could not remove “${name}”.`,
+    remove: 'Remove server',
+    cancel: 'Cancel',
+    source: 'Source',
+    needsInstall: 'Needs install',
+    installedBadge: 'Installed',
+    authType: {
+      oauth: 'OAuth',
+      api_key: 'API key',
+      none: 'No auth'
+    },
+    requiredCredentials: 'Required credentials',
+    optionalCredentials: 'Optional credentials',
+    oauthHint: 'You will be redirected to sign in with the provider after installing.',
+    oauthConnect: 'Connect',
+    oauthReconnect: 'Reconnect',
+    oauthDisconnect: 'Disconnect',
+    oauthAuthenticated: 'Authenticated',
+    oauthNotAuthenticated: 'Not authenticated',
+    oauthLoginSuccess: 'Signed in',
+    oauthLoginFailed: 'Sign-in failed',
+    oauthLogoutSuccess: 'Signed out',
+    oauthLogoutFailed: 'Sign-out failed',
+    toolsCount: count => `${count} ${count === 1 ? 'tool' : 'tools'}`
   },
 
   sidebar: {

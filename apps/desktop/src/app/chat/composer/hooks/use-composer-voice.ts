@@ -8,7 +8,7 @@ import { notifyError } from '@/store/notifications'
 import { $messages } from '@/store/session'
 import { $autoSpeakReplies, setAutoSpeakReplies } from '@/store/voice-prefs'
 
-import { onComposerVoiceToggleRequest } from '../focus'
+import { onComposerVoiceStartRequest, onComposerVoiceToggleRequest } from '../focus'
 import type { ChatBarProps } from '../types'
 
 import { useAutoSpeakReplies } from './use-auto-speak-replies'
@@ -124,6 +124,16 @@ export function useComposerVoice({
 
   useEffect(() => onComposerVoiceToggleRequest(toggleVoiceConversation), [toggleVoiceConversation])
 
+  // Wake word: start voice mode without toggling it off if already active.
+  const startVoiceConversation = useCallback(() => {
+    if (disabled) return
+    if (!voiceConversationActive) {
+      setVoiceConversationActive(true)
+    }
+  }, [disabled, voiceConversationActive])
+
+  useEffect(() => onComposerVoiceStartRequest(startVoiceConversation), [startVoiceConversation])
+
   // Explicit start/end for the on-screen conversation controls (the hotkey uses
   // the gated toggle above).
   const startConversation = useCallback(() => setVoiceConversationActive(true), [])
@@ -153,6 +163,8 @@ export function useComposerVoice({
     endConversation,
     handleToggleAutoSpeak,
     startConversation,
+    startVoiceConversation,
+    toggleVoiceConversation,
     voiceActivityState,
     voiceConversationActive,
     voiceStatus

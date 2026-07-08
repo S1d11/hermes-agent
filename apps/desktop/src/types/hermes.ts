@@ -996,29 +996,9 @@ export interface McpServerTestResponse {
 }
 
 /** One Nous-approved MCP catalog entry from `GET /api/mcp/catalog`. */
-export interface McpCatalogEntry {
-  name: string
-  description: string
-  source: string
-  transport: string
-  auth_type: string
-  required_env: { name: string; prompt: string; required: boolean }[]
-  command: string | null
-  args: string[]
-  url: string | null
-  install_url: string | null
-  install_ref: string | null
-  bootstrap: string[]
-  default_enabled: string[] | null
-  post_install: string
-  needs_install: boolean
-  installed: boolean
-  enabled: boolean
-}
-
 export interface McpCatalogResponse {
   entries: McpCatalogEntry[]
-  diagnostics: { name: string; kind: string; message: string }[]
+  diagnostics: McpCatalogDiagnostic[]
 }
 
 /** `GET /api/memory` — active provider + built-in memory file sizes. */

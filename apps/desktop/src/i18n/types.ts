@@ -279,10 +279,11 @@ export interface Translations {
       intro: string
       enableAll: string
       enableAllDesc: string
+      enableAllRec: string
       focusedHint: string
       kinds: Record<
         'approval' | 'backgroundDone' | 'input' | 'turnDone' | 'turnError',
-        { label: string; description: string }
+        { label: string; description: string; rec: string }
       >
       test: string
       testTitle: string
@@ -292,8 +293,46 @@ export interface Translations {
       completionSoundTitle: string
       completionSoundDesc: string
       completionSoundPreview: string
+      completionSoundRec: string
     }
     sections: Record<string, string>
+    sectionGroups: Record<string, string>
+    providerBadges: Record<string, string>
+    providerGroups: Record<string, string>
+    general: {
+      title: string
+      intro: string
+      startupSection: string
+      autoLaunch: string
+      autoLaunchDesc: string
+      autoLaunchRec: string
+      startMinimized: string
+      startMinimizedDesc: string
+      startMinimizedRec: string
+      relaunchLastSession: string
+      relaunchLastSessionDesc: string
+      relaunchLastSessionRec: string
+      windowSection: string
+      closeToTray: string
+      closeToTrayDesc: string
+      closeToTrayRec: string
+      minimizeToTray: string
+      minimizeToTrayDesc: string
+      minimizeToTrayRec: string
+      voiceSection: string
+      wakeWord: string
+      wakeWordDesc: string
+      wakeWordRec: string
+      updatesSection: string
+      autoUpdates: string
+      autoUpdatesDesc: string
+      autoUpdatesRec: string
+      checking: string
+      checkFailed: string
+      updateAvailable: (count: number) => string
+      upToDate: string
+      checkNow: string
+    }
     searchPlaceholder: Record<'about' | 'config' | 'gateway' | 'keys' | 'mcp' | 'sessions', string>
     modeOptions: Record<'light' | 'dark' | 'system', ModeOptionCopy>
     appearance: {
@@ -329,6 +368,16 @@ export interface Translations {
       installed: (name: string) => string
       removeTheme: string
       importedBadge: string
+      themeRec: string
+      translucencyRec: string
+      toolViewRec: string
+      embedsRec: string
+      terminalPositionTitle: string
+      terminalPositionDesc: string
+      terminalPositionRec: string
+      terminalPositionAuto: string
+      terminalPositionSide: string
+      terminalPositionBottom: string
       pet: {
         title: string
         intro: string
@@ -578,6 +627,8 @@ export interface Translations {
       change: string
       autoUseMain: string
       providerDefault: string
+      mainModelRec: string
+      auxiliaryRec: string
       tasks: Record<string, AuxTaskCopy>
     }
     providers: {
@@ -896,7 +947,7 @@ export interface Translations {
     archivedChats: string
     sections: Record<'maintenance' | 'sessions' | 'system' | 'usage', string>
     sectionDescriptions: Record<'maintenance' | 'sessions' | 'system' | 'usage', string>
-    nav: Record<'newChat' | 'settings' | 'skills' | 'messaging' | 'artifacts', { title: string; detail: string }>
+    nav: Record<'newChat' | 'settings' | 'skills' | 'messaging' | 'artifacts' | 'connections', { title: string; detail: string }>
     sectionEntries: Record<'sessions' | 'system' | 'usage', { title: string; detail: string }>
     providerNavigate: string
     providerSessions: string
@@ -1176,6 +1227,7 @@ export interface Translations {
     customHint: string
     optional: string
     promptScheduleRequired: string
+    invalidSchedule: string
     saveChanges: string
     createAction: string
   }
@@ -1213,6 +1265,50 @@ export interface Translations {
     chat: string
     copyUrl: string
     copyPath: string
+  }
+
+  connections: {
+    search: string
+    refresh: string
+    loading: string
+    loadFailed: string
+    installedSection: string
+    noServers: string
+    catalogSection: string
+    noCatalogEntries: string
+    install: string
+    reinstall: string
+    installing: string
+    installed: (name: string) => string
+    installFailed: (name: string) => string
+    installingInBackground: (name: string) => string
+    installBackgroundDetail: string
+    restartToActivate: string
+    restartToApply: string
+    serverEnabled: (name: string) => string
+    serverDisabled: (name: string) => string
+    serverRemoved: (name: string) => string
+    failedToggle: (name: string) => string
+    failedRemove: (name: string) => string
+    remove: string
+    cancel: string
+    source: string
+    needsInstall: string
+    installedBadge: string
+    authType: Record<string, string>
+    requiredCredentials: string
+    optionalCredentials: string
+    oauthHint: string
+    oauthConnect: string
+    oauthReconnect: string
+    oauthDisconnect: string
+    oauthAuthenticated: string
+    oauthNotAuthenticated: string
+    oauthLoginSuccess: string
+    oauthLoginFailed: string
+    oauthLogoutSuccess: string
+    oauthLogoutFailed: string
+    toolsCount: (count: number) => string
   }
 
   sidebar: {

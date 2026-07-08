@@ -131,7 +131,6 @@ const DESKTOP_COMMAND_SPECS: readonly DesktopCommandSpec[] = [
     args: true
   },
   {
-  {
     name: '/cron',
     description: 'Open the cron jobs overlay [list|trigger|pause|resume]',
     surface: action('cron'),
