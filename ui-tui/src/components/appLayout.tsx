@@ -31,6 +31,67 @@ import { LiveTodoPanel, StreamingAssistant } from './streamingAssistant.js'
 import { TextInput, type TextInputMouseApi } from './textInput.js'
 
 
+// Petdex mascot — a small floating overlay riding the bottom-right corner just
+// above the status bar, with a little top/left breathing room. It reserves no
+// layout rows (the transcript scrolls underneath); instead it publishes its
+// footprint so the transcript can keep its text clear of it (right gutter on
+// wide terminals, reserved bottom rows on narrow ones). Renders nothing unless
+// a pet is installed + enabled.
+export const PetPane = memo(function PetPane() {
+  const { enabled, grid, kitty } = usePet()
+
+  // Footprint in cells. For kitty we count real placeholder cells (zero-width
+  // diacritics make string length lie); for half-blocks it's the grid shape.
+  const { width, height } = useMemo(() => {
+    if (kitty) {
+      return {
+        height: kitty.placeholder.length,
+        width: Math.max(0, ...kitty.placeholder.map(row => [...row].filter(ch => ch === KITTY_PLACEHOLDER).length))
+      }
+    }
+
+    if (grid) {
+      return { height: grid.length, width: Math.max(0, ...grid.map(row => row.length)) }
+    }
+
+    return { height: 0, width: 0 }
+  }, [grid, kitty])
+
+  const active = enabled && width > 0 && height > 0
+
+  useEffect(() => {
+    $petBox.set(
+      active
+        ? {
+            // Bottom PET_BOTTOM rows sit over the composer, so the transcript
+            // only needs to clear the rest in the row-reservation (band) mode.
+            height: Math.max(0, height - PET_BOTTOM),
+            width: width + PET_PAD_LEFT + PET_RIGHT + PET_GUTTER_GAP
+          }
+        : null
+    )
+
+    return () => $petBox.set(null)
+  }, [active, height, width])
+
+  if (!active) {
+    return null
+  }
+
+  return (
+    <NoSelect
+      bottom={PET_BOTTOM}
+      flexShrink={0}
+      paddingLeft={PET_PAD_LEFT}
+      paddingTop={1}
+      position="absolute"
+      right={PET_RIGHT}
+    >
+      {kitty ? <PetKitty color={kitty.color} placeholder={kitty.placeholder} /> : null}
+      {!kitty && grid ? <PetSprite grid={grid} /> : null}
+    </NoSelect>
+  )
+})
 
 const PromptPrefix = memo(function PromptPrefix({
   bold = false,

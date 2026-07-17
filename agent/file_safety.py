@@ -95,68 +95,16 @@ def get_safe_write_roots() -> set[str]:
     return roots
 
 
-def get_trusted_paths() -> set[str]:
-    """Return resolved trusted-path directories from config.yaml
-    (``file_access.trusted_paths``).
-
-    Unlike ``HERMES_WRITE_SAFE_ROOT`` (which is deny-by-default: writes outside
-    the listed roots are blocked), trusted paths are allow-by-default: writes
-    anywhere are allowed, but writes inside trusted paths skip the
-    workspace-divergence warning and don't trigger an approval prompt.
-
-    The static deny list (SSH keys, credentials, system paths) always wins,
-    even for trusted paths — ``is_write_denied`` is checked independently.
-    """
-    try:
-        from hermes_cli.config import load_config_readonly
-
-        cfg = load_config_readonly()
-        raw = (cfg.get("file_access") or {}).get("trusted_paths") or []
-    except Exception:
-        return set()
-
-    if not isinstance(raw, list):
-        return set()
-
-    roots: set[str] = set()
-    for path in raw:
-        if isinstance(path, str) and path.strip():
-            try:
-                resolved = os.path.realpath(os.path.expanduser(path.strip()))
-                # Normalize trailing separators so startswith() comparisons
-                # in is_path_trusted() are consistent across platforms.
-                resolved = resolved.rstrip(os.sep) or os.sep
-                roots.add(resolved)
-            except (OSError, ValueError):
-                continue
-    return roots
-
-
-def is_path_trusted(path: str) -> bool:
-    """Return True if ``path`` falls under a configured trusted-path directory."""
-    trusted = get_trusted_paths()
-    if not trusted:
-        return False
-    try:
-        resolved = os.path.realpath(os.path.expanduser(str(path)))
-    except (OSError, ValueError):
-        return False
-    for root in trusted:
-        if resolved == root or resolved.startswith(root + os.sep):
-            return True
-    return False
-
-
-def is_write_denied(path: str) -> bool:
-    """Return True if path is blocked by the write denylist or safe root."""
+def _classify_write_denial(path: str) -> Optional[str]:
+    """Return ``'credential'``, ``'safe_root'``, or ``None`` if writes are allowed."""
     home = os.path.realpath(os.path.expanduser("~"))
     resolved = os.path.realpath(os.path.expanduser(str(path)))
 
     if resolved in build_write_denied_paths(home):
-        return True
+        return "credential"
     for prefix in build_write_denied_prefixes(home):
         if resolved.startswith(prefix):
-            return True
+            return "credential"
 
     mcp_tokens_dir_name = "mcp-tokens"
 
@@ -170,16 +118,27 @@ def is_write_denied(path: str) -> bool:
             continue
 
     for base_real in hermes_dirs:
+        # Session transcripts are application-owned state.  Letting the agent's
+        # generic file tools rewrite state.db or legacy JSON snapshots can
+        # falsify conversation history and invalidate resume/compression state.
+        try:
+            if resolved == os.path.realpath(os.path.join(base_real, "state.db")):
+                return True
+            sessions_real = os.path.realpath(os.path.join(base_real, "sessions"))
+            if resolved == sessions_real or resolved.startswith(sessions_real + os.sep):
+                return True
+        except Exception:
+            pass
         try:
             mcp_real = os.path.realpath(os.path.join(base_real, mcp_tokens_dir_name))
             if resolved == mcp_real or resolved.startswith(mcp_real + os.sep):
-                return True
+                return "credential"
         except Exception:
             pass
         try:
             pairing_real = os.path.realpath(os.path.join(base_real, "pairing"))
             if resolved == pairing_real or resolved.startswith(pairing_real + os.sep):
-                return True
+                return "credential"
         except Exception:
             pass
 
@@ -191,9 +150,28 @@ def is_write_denied(path: str) -> bool:
                 allowed = True
                 break
         if not allowed:
-            return True
+            return "safe_root"
 
-    return False
+    return None
+
+
+def is_write_denied(path: str) -> bool:
+    """Return True if path is blocked by the write denylist or safe root."""
+    return _classify_write_denial(path) is not None
+
+
+def get_write_denied_error(path: str, *, verb: str = "Write") -> Optional[str]:
+    """Return a user/model-facing error when writes to ``path`` are blocked."""
+    denial = _classify_write_denial(path)
+    if denial is None:
+        return None
+    if denial == "safe_root":
+        roots_display = os.pathsep.join(sorted(get_safe_write_roots()))
+        return (
+            f"{verb} denied: '{path}' is outside HERMES_WRITE_SAFE_ROOT "
+            f"({roots_display}). Unset the variable or add this path's directory prefix."
+        )
+    return f"{verb} denied: '{path}' is a protected system/credential file."
 
 
 # Common secret-bearing project-local environment file basenames.

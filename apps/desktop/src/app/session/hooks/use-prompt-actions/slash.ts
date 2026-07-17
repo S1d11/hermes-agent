@@ -13,7 +13,8 @@ import {
   resolveDesktopCommand
 } from '@/lib/desktop-slash-commands'
 import { setSessionYolo } from '@/lib/yolo-session'
-import { type ComposerAttachment, setComposerDraft } from '@/store/composer'
+import { openCommandPalettePage } from '@/store/command-palette'
+import { setComposerDraft } from '@/store/composer'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, $newChatProfile, ensureGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import {
@@ -28,7 +29,13 @@ import {
 
 import type { BrowserManageResponse, SessionTitleResponse, SlashExecResponse } from '../../../types'
 
-import { type GatewayRequest, isSessionIdCandidate, renderCommandsCatalog, slashStatusText } from './utils'
+import {
+  type GatewayRequest,
+  isSessionIdCandidate,
+  renderCommandsCatalog,
+  slashStatusText,
+  type SubmitTextOptions
+} from './utils'
 
 /** Everything a slash handler needs about the invocation it's serving. */
 interface SlashActionCtx {
@@ -58,10 +65,7 @@ interface SlashCommandDeps {
   requestGateway: GatewayRequest
   resumeStoredSession: (storedSessionId: string) => Promise<void> | void
   startFreshSessionDraft: () => void
-  submitPromptText: (
-    rawText: string,
-    options?: { attachments?: ComposerAttachment[]; fromQueue?: boolean }
-  ) => Promise<boolean>
+  submitPromptText: (rawText: string, options?: SubmitTextOptions) => Promise<boolean>
 }
 
 /** The /slash command dispatcher, extracted from usePromptActions. */

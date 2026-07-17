@@ -8,7 +8,8 @@ import { notifyError } from '@/store/notifications'
 import { $messages } from '@/store/session'
 import { $autoSpeakReplies, setAutoSpeakReplies } from '@/store/voice-prefs'
 
-import { onComposerVoiceStartRequest, onComposerVoiceToggleRequest } from '../focus'
+import type { ComposerTarget } from '../focus'
+import { onComposerVoiceToggleRequest } from '../focus'
 import type { ChatBarProps } from '../types'
 
 import { useAutoSpeakReplies } from './use-auto-speak-replies'
@@ -25,6 +26,9 @@ interface UseComposerVoiceArgs {
   onSubmit: ChatBarProps['onSubmit']
   onTranscribeAudio: ChatBarProps['onTranscribeAudio']
   sessionId: string | null | undefined
+  /** This composer's focus-bus key — voice toggles targeting another
+   *  composer (or the active one, when not us) are ignored. */
+  target: ComposerTarget
 }
 
 /**
@@ -42,7 +46,8 @@ export function useComposerVoice({
   maxRecordingSeconds,
   onSubmit,
   onTranscribeAudio,
-  sessionId
+  sessionId,
+  target
 }: UseComposerVoiceArgs) {
   const { t } = useI18n()
   const [voiceConversationActive, setVoiceConversationActive] = useState(false)
@@ -122,7 +127,10 @@ export function useComposerVoice({
     }
   }, [conversation, disabled, voiceConversationActive])
 
-  useEffect(() => onComposerVoiceToggleRequest(toggleVoiceConversation), [toggleVoiceConversation])
+  useEffect(
+    () => onComposerVoiceToggleRequest(toggled => toggled === target && toggleVoiceConversation()),
+    [target, toggleVoiceConversation]
+  )
 
   // Wake word: start voice mode without toggling it off if already active.
   const startVoiceConversation = useCallback(() => {
