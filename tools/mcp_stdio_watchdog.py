@@ -59,6 +59,8 @@ try:
 except ImportError:  # pragma: no cover - psutil is a hard dependency elsewhere
     psutil = None
 
+from hermes_cli._subprocess_compat import windows_hide_flags
+
 _POLL_INTERVAL_S = 2.0
 _TERM_GRACE_S = 3.0
 
@@ -151,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         stdout=sys.stdout,
         stderr=sys.stderr,
         start_new_session=True,
+        creationflags=windows_hide_flags(),
     )
 
     # Because the real server lives in its OWN process group (above), the

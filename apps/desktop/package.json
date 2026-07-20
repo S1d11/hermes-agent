@@ -265,6 +265,14 @@
         "rpm"
       ]
     },
+    "msi": {
+      "oneClick": false,
+      "perMachine": true,
+      "warningsAsErrors": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

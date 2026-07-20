@@ -42,6 +42,7 @@ from urllib.parse import urlparse
 import httpx
 from agent.auxiliary_client import async_call_llm, extract_content_or_reasoning
 from hermes_constants import get_hermes_dir
+from hermes_cli._subprocess_compat import windows_hide_flags
 from tools.debug_helpers import DebugSession
 from tools.website_policy import check_website_access
 import sys
@@ -292,6 +293,7 @@ def _rasterize_svg_to_png(svg_path: Path, out_path: Path) -> bool:
                 _subprocess.run(
                     cmd, check=True, capture_output=True, timeout=30,
                     stdin=_subprocess.DEVNULL,
+                    creationflags=windows_hide_flags(),
                 )
                 if out_path.exists() and out_path.stat().st_size > 0:
                     return True

@@ -327,8 +327,8 @@
     --dt-letter-spacing: 0;
     --dt-spacing-mul: 1;
 
-    --radius: 0.75rem;
-    --radius-scalar: 1;
+    --radius: calc(var(--radius-scalar) * 0.75rem);
+    --radius-scalar: 1.25;
 
     /* Space under last message vs overlay composer — driven by the measured composer height (see composer/index.tsx)
        plus the out-of-flow status stack's measured height (see status-stack/index.tsx) when one is showing. */

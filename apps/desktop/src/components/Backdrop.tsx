@@ -60,7 +60,7 @@ export function Backdrop() {
 
   const shape = useControls(
     'UI / Shape',
-    { radiusScalar: { value: 0.2, min: 0, max: 2, step: 0.1, label: 'radius scalar' } },
+    { radiusScalar: { value: 1.25, min: 0, max: 2, step: 0.1, label: 'radius scalar' } },
     { collapsed: true }
   )
 

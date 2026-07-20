@@ -811,6 +811,7 @@ def install_cua_driver(upgrade: bool = False) -> bool:
             version = subprocess.run(
                 [driver_cmd, "--version"],
                 capture_output=True, text=True, timeout=5, env=_cua_driver_env(),
+                creationflags=windows_hide_flags(),
             ).stdout.strip()
             _print_success(f"    {driver_cmd} already installed: {version or 'unknown version'}")
         except Exception:
@@ -868,6 +869,7 @@ def install_cua_driver(upgrade: bool = False) -> bool:
             before = subprocess.run(
                 [driver_cmd, "--version"],
                 capture_output=True, text=True, timeout=5, env=_cua_driver_env(),
+                creationflags=windows_hide_flags(),
             ).stdout.strip()
         except Exception:
             before = ""
@@ -880,6 +882,7 @@ def install_cua_driver(upgrade: bool = False) -> bool:
             after = subprocess.run(
                 [driver_cmd, "--version"],
                 capture_output=True, text=True, timeout=5, env=_cua_driver_env(),
+                creationflags=windows_hide_flags(),
             ).stdout.strip()
             if after and after != before:
                 _print_success(f"    {driver_cmd} upgraded: {before} → {after}")
@@ -1061,7 +1064,9 @@ def _run_cua_driver_installer(label: str = "Installing", verbose: bool = True) -
     # _install-rust.sh), not just the outer shell. Otherwise the surviving
     # grandchildren keep holding the install lock, wedging every later run.
     popen_kwargs = {}
-    if not is_windows:
+    if is_windows:
+        popen_kwargs["creationflags"] = windows_hide_flags()
+    else:
         popen_kwargs["start_new_session"] = True
 
     def _kill_installer_tree(proc):
@@ -1187,7 +1192,8 @@ def _run_post_setup(post_setup_key: str):
                 # only, avoiding the apps/* glob which would pull in
                 # apps/desktop (Electron + node-pty) unnecessarily. See #38772.
                 [npm_bin, "install", "--silent", "--workspaces=false"],
-                capture_output=True, text=True, cwd=str(PROJECT_ROOT)
+                capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+                creationflags=windows_hide_flags(),
             )
             if result.returncode == 0:
                 _print_success("    Node.js dependencies installed")
@@ -1263,6 +1269,7 @@ def _run_post_setup(post_setup_key: str):
             result = subprocess.run(
                 install_cmd,
                 capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=600,
+                creationflags=windows_hide_flags(),
             )
             if result.returncode == 0:
                 _print_success("    Chromium installed")
@@ -1293,7 +1300,8 @@ def _run_post_setup(post_setup_key: str):
             result = subprocess.run(
                 # --workspaces=false avoids resolving apps/desktop. See #38772.
                 [_npm_bin, "install", "--silent", "--workspaces=false"],
-                capture_output=True, text=True, cwd=str(PROJECT_ROOT)
+                capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+                creationflags=windows_hide_flags(),
             )
             if result.returncode == 0:
                 _print_success("    Camofox installed")

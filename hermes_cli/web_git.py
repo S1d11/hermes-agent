@@ -19,6 +19,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from hermes_cli._subprocess_compat import windows_hide_flags
+
 _GIT_TIMEOUT = 30
 _GH_TIMEOUT = 30
 _MAX_BUFFER = 32 * 1024 * 1024
@@ -39,6 +41,7 @@ def _git(cwd: str, args: list[str], *, timeout: int = _GIT_TIMEOUT) -> tuple[int
             capture_output=True,
             text=True,
             timeout=timeout,
+            creationflags=windows_hide_flags(),
         )
     except (OSError, subprocess.SubprocessError):
         return 1, "", "git invocation failed"
@@ -421,7 +424,8 @@ def _gh(cwd: str, args: list[str]) -> tuple[bool, str]:
         return False, ""
     try:
         proc = subprocess.run(
-            ["gh", *args], cwd=cwd, capture_output=True, text=True, timeout=_GH_TIMEOUT
+            ["gh", *args], cwd=cwd, capture_output=True, text=True, timeout=_GH_TIMEOUT,
+            creationflags=windows_hide_flags(),
         )
     except (OSError, subprocess.SubprocessError):
         return False, ""

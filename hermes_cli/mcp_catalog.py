@@ -449,6 +449,19 @@ def _expand_install_dir(value: str, install_dir: Optional[Path]) -> str:
     return value.replace(_INSTALL_DIR_VAR, str(install_dir))
 
 
+def _strip_bearer_prefix(token: str) -> str:
+    """Strip a leading ``Bearer `` from a pasted token.
+
+    The HTTP header template stores ``Authorization: Bearer ${VAR}``, so
+    if a user pastes a token that already includes the ``Bearer `` prefix
+    the server receives ``Bearer Bearer <token>`` → 401. Normalize here.
+    """
+    stripped = str(token or "").strip()
+    if stripped[:7].lower() == "bearer ":
+        return stripped[7:].strip()
+    return stripped
+
+
 def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
     """Walk the env spec list, prompting the user for each. Writes secrets and
     non-secrets alike to ~/.hermes/.env via save_env_value()."""
@@ -468,6 +481,8 @@ def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
             if spec.required:
                 raise CatalogError(f"{spec.name} is required but no value was provided")
             continue
+        if spec.secret:
+            value = _strip_bearer_prefix(value)
         save_env_value(spec.name, value)
         collected[spec.name] = value
     return collected
@@ -490,6 +505,13 @@ def _build_server_config(
         cfg["url"] = t.url
         if entry.auth.type == "oauth":
             cfg["auth"] = "oauth"
+        elif entry.auth.type == "api_key":
+            # Remote HTTP MCP servers that use a static Bearer token (e.g.
+            # Zapier connection tokens) need the token in an Authorization
+            # header. The secret itself lives in .env; the config stores the
+            # interpolation template so it is redacted from logs/YAML.
+            env_key = entry.auth.env[0].name if entry.auth.env else f"MCP_{re.sub(r'[^A-Za-z0-9_]', '_', entry.name.upper()).strip('_')}_API_KEY"
+            cfg["headers"] = {"Authorization": f"Bearer ${{{env_key}}}"}
     return cfg
 
 

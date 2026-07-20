@@ -1,0 +1,29 @@
+# Nous-approved MCP catalog entry.
+manifest_version: 1
+
+name: zapier
+description: Route MCP actions through Zapier's 7,000+ connected apps without per-service OAuth.
+source: https://github.com/zapier/zapier-mcp
+
+# Zapier's hosted remote MCP server. It proxies actions for any app the user
+# has connected on mcp.zapier.com, so the agent gets OAuth-gated services
+# (Gmail, Slack, HubSpot, Salesforce, etc.) through a single Zapier auth.
+transport:
+  type: http
+  url: https://mcp.zapier.com/api/v1/connect
+
+auth:
+  type: api_key
+  env:
+    - name: MCP_ZAPIER_API_KEY
+      prompt: Zapier connection token (from mcp.zapier.com Connect tab)
+      required: true
+      secret: true
+
+post_install: |
+  1. Go to https://mcp.zapier.com and create a new MCP server (or open an existing one).
+  2. Open the Connect tab, generate a connection token, and paste it above.
+  3. Enable the Zapier actions you want Hermes to use in the Zapier MCP portal.
+  4. Start a new Hermes session so the Zapier tools are loaded.
+
+  Re-run `hermes mcp configure zapier` to update the token or re-enable actions.
