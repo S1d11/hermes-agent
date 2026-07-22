@@ -161,7 +161,7 @@
     "publish": {
       "provider": "github",
       "owner": "S1d11",
-      "repo": "hermes",
+      "repo": "hermes-agent",
       "releaseType": "release"
     },
     "protocols": [
