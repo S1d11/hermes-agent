@@ -132,6 +132,24 @@ def _node_symlink_candidate_dirs() -> "list[Path]":
     return dirs
 
 
+def _normalize_path_for_compare(p: Path) -> str:
+    """Resolve ``p`` and strip the Windows ``\\\\?\\`` extended-path prefix.
+
+    This makes symlink target comparison work across the two forms Windows can
+    return: ``C:\\Users\\...\\node`` and ``\\\\?\\C:\\Users\\...\\node``.
+    """
+    try:
+        resolved = p.resolve()
+    except OSError:
+        resolved = p
+    s = str(resolved)
+    if s.startswith("\\\\?\\"):
+        s = s[4:]
+    elif s.startswith("\\\\?\\UNC\\"):
+        s = s[8:]
+    return os.path.normpath(s)
+
+
 def remove_node_symlinks(hermes_home: Path) -> list:
     """Remove the node/npm/npx symlinks the installer placed on PATH.
 
@@ -149,7 +167,7 @@ def remove_node_symlinks(hermes_home: Path) -> list:
     directory are removed — links the user has repointed elsewhere (nvm, fnm,
     etc.) are left untouched.
     """
-    node_dir = (hermes_home / "node").resolve()
+    node_dir = _normalize_path_for_compare(hermes_home / "node")
     removed = []
 
     for name in ("node", "npm", "npx"):
@@ -166,9 +184,9 @@ def remove_node_symlinks(hermes_home: Path) -> list:
                 target = Path(os.readlink(link))
                 if not target.is_absolute():
                     target = (link.parent / target)
-                target = target.resolve()
+                target_str = _normalize_path_for_compare(target)
 
-                if target == node_dir or node_dir in target.parents:
+                if target_str == node_dir or target_str.startswith(node_dir + os.sep):
                     link.unlink()
                     removed.append(link)
             except Exception as e:
@@ -901,9 +919,9 @@ def _perform_uninstall(
         print()
         print("To reinstall later with your existing settings:")
         if _is_windows():
-            print(color("  iex (irm https://raw.githubusercontent.com/S1d11/zeus/main/scripts/install.ps1)", Colors.DIM))
+            print(color("  iex (irm https://raw.githubusercontent.com/S1d11/hermes-agent/main/scripts/install.ps1)", Colors.DIM))
         else:
-            print(color("  curl -fsSL https://raw.githubusercontent.com/S1d11/zeus/main/scripts/install.sh | bash", Colors.DIM))
+            print(color("  curl -fsSL https://raw.githubusercontent.com/S1d11/hermes-agent/main/scripts/install.sh | bash", Colors.DIM))
         print()
 
     if _is_windows():

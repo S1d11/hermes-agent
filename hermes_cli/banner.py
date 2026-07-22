@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 from hermes_constants import get_hermes_home
 from typing import TYPE_CHECKING, Dict, List, Optional
 
+from hermes_cli._subprocess_compat import windows_hide_flags
+
 # rich and prompt_toolkit are imported lazily (inside the functions that use
 # them) rather than at module level.  Importing this module is on the TUI
 # gateway's critical startup path purely to reach the lightweight update-check
@@ -120,8 +122,10 @@ _UPDATE_CHECK_CACHE_SECONDS = 6 * 3600
 # (e.g. nix-built hermes — no local git history to count against).
 UPDATE_AVAILABLE_NO_COUNT = -1
 
-_UPSTREAM_REPO_URL = "https://github.com/S1d11/zeus.git"
-_OFFICIAL_REPO_CANONICAL = "github.com/S1d11/zeus"
+_PRIMARY_REPO_URL = "https://github.com/S1d11/hermes-agent.git"
+_UPSTREAM_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
+_PRIMARY_REPO_CANONICAL = "github.com/s1d11/hermes-agent"
+_UPSTREAM_REPO_CANONICAL = "github.com/nousresearch/hermes-agent"
 
 
 def _canonical_github_remote(url: str | None) -> str:
@@ -150,8 +154,22 @@ def _is_ssh_remote(url: str | None) -> bool:
     return value.startswith("git@") or value.startswith("ssh://")
 
 
-def _is_official_ssh_remote(url: str | None) -> bool:
-    return _is_ssh_remote(url) and _canonical_github_remote(url) == _OFFICIAL_REPO_CANONICAL
+def _is_known_ssh_remote(url: str | None) -> bool:
+    """True for the primary or upstream Hermes repos over SSH."""
+    if not _is_ssh_remote(url):
+        return False
+    canonical = _canonical_github_remote(url)
+    return canonical in {_PRIMARY_REPO_CANONICAL, _UPSTREAM_REPO_CANONICAL}
+
+
+def _known_repo_https_url(url: str | None) -> str:
+    """Return the public HTTPS URL for a known SSH remote, or the input URL."""
+    canonical = _canonical_github_remote(url)
+    if canonical == _PRIMARY_REPO_CANONICAL:
+        return _PRIMARY_REPO_URL
+    if canonical == _UPSTREAM_REPO_CANONICAL:
+        return _UPSTREAM_REPO_URL
+    return url or ""
 
 
 def _git_stdout(args: list[str], *, cwd: Path, timeout: int = 5) -> Optional[str]:
@@ -162,6 +180,7 @@ def _git_stdout(args: list[str], *, cwd: Path, timeout: int = 5) -> Optional[str
             text=True,
             timeout=timeout,
             cwd=str(cwd),
+            creationflags=windows_hide_flags(),
         )
     except Exception:
         return None
@@ -170,20 +189,29 @@ def _git_stdout(args: list[str], *, cwd: Path, timeout: int = 5) -> Optional[str
     return (result.stdout or "").strip()
 
 
-def _check_via_rev(local_rev: str) -> Optional[int]:
-    """Compare an embedded git revision to upstream main via ls-remote.
+def _git_run(args: list[str], *, cwd: Path, timeout: int = 10) -> Optional[subprocess.CompletedProcess]:
+    """Run git and return the completed process; None on timeout/OSError."""
+    try:
+        return subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(cwd),
+            creationflags=windows_hide_flags(),
+        )
+    except Exception:
+        return None
+
+
+def _check_via_rev(local_rev: str, repo_url: str = _UPSTREAM_REPO_URL) -> Optional[int]:
+    """Compare an embedded git revision to a remote main via ls-remote.
 
     Returns 0 if up-to-date, ``UPDATE_AVAILABLE_NO_COUNT`` if behind,
     or ``None`` on failure.
     """
-    try:
-        result = subprocess.run(
-            ["git", "ls-remote", _UPSTREAM_REPO_URL, "refs/heads/main"],
-            capture_output=True, text=True, timeout=10,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0 or not result.stdout:
+    result = _git_run(["ls-remote", repo_url, "refs/heads/main"], cwd=Path("."))
+    if result is None or result.returncode != 0 or not result.stdout:
         return None
     upstream_rev = result.stdout.split()[0]
     if not upstream_rev:
@@ -191,64 +219,155 @@ def _check_via_rev(local_rev: str) -> Optional[int]:
     return 0 if upstream_rev == local_rev else UPDATE_AVAILABLE_NO_COUNT
 
 
-def _check_via_local_git(repo_dir: Path) -> Optional[int]:
-    """Count commits behind origin/main in a local checkout."""
-    origin_url = _git_stdout(["remote", "get-url", "origin"], cwd=repo_dir)
-    if _is_official_ssh_remote(origin_url):
-        head_rev = _git_stdout(["rev-parse", "HEAD"], cwd=repo_dir)
-        checked = _check_via_rev(head_rev) if head_rev else None
+def _head_time(repo_dir: Path) -> Optional[int]:
+    """Return the committer timestamp (seconds since epoch) for HEAD, or None."""
+    value = _git_stdout(["log", "-1", "--format=%ct", "HEAD"], cwd=repo_dir, timeout=5)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _fetch_remote(
+    repo_dir: Path,
+    remote: str,
+    branch: str,
+    is_shallow: bool,
+) -> Optional[str]:
+    """Fetch ``remote/<branch>`` into a temporary ref and return the temp ref name.
+
+    Returns ``None`` if the remote is not configured or the fetch fails.
+    """
+    remote_url = _git_stdout(["remote", "get-url", remote], cwd=repo_dir, timeout=5)
+    if not remote_url:
+        return None
+
+    effective_url = _known_repo_https_url(remote_url)
+    temp_ref = f"refs/hermes-update/{remote}"
+    depth_args = ["--depth", "1"] if is_shallow else []
+
+    result = _git_run(
+        ["fetch", *depth_args, effective_url, f"+refs/heads/{branch}:{temp_ref}"],
+        cwd=repo_dir,
+        timeout=15,
+    )
+    if result is None or result.returncode != 0:
+        return None
+    return temp_ref
+
+
+def _behind_for_ref(repo_dir: Path, ref: str, head_sha: str, head_time: Optional[int], is_shallow: bool) -> int:
+    """Return how many commits HEAD is behind ``ref``.
+
+    Falls back to a binary/timestamp check on shallow clones where no merge
+    base can be established.
+    """
+    target_sha = _git_stdout(["rev-parse", ref], cwd=repo_dir, timeout=5)
+    if not target_sha or target_sha == head_sha:
+        return 0
+
+    ancestor_check = _git_run(["merge-base", "--is-ancestor", "HEAD", ref], cwd=repo_dir, timeout=5)
+    is_ancestor = ancestor_check is not None and ancestor_check.returncode == 0
+
+    if is_ancestor:
+        count_value = _git_stdout(["rev-list", f"HEAD..{ref}", "--count"], cwd=repo_dir, timeout=5)
+        if count_value is not None:
+            try:
+                return max(0, int(count_value))
+            except ValueError:
+                pass
+        return 1
+
+    if is_shallow:
+        target_time = _git_stdout(["log", "-1", "--format=%ct", ref], cwd=repo_dir, timeout=5)
+        if target_time is not None:
+            try:
+                if int(target_time) > (head_time or 0):
+                    return UPDATE_AVAILABLE_NO_COUNT
+            except ValueError:
+                pass
+        return 0
+
+    # Full clone where ``ref`` is not an ancestor of HEAD: the remote is
+    # either behind or has diverged. Either way, it is not a fast-forward
+    # source of new commits.
+    return 0
+
+
+def _ref_contains_ref(repo_dir: Path, candidate: str, other: str) -> bool:
+    """Return True if ``candidate`` contains all commits from ``other``."""
+    result = _git_run(["merge-base", "--is-ancestor", other, candidate], cwd=repo_dir, timeout=5)
+    return result is not None and result.returncode == 0
+
+
+def _combine_behind(a: int, b: int) -> int:
+    """Combine behind counts from two remotes, preserving the unknown-count sentinel.
+
+    A positive count from one remote wins over an unknown-count sentinel from
+    the other; an unknown sentinel wins over zero (up-to-date).
+    """
+    if a == UPDATE_AVAILABLE_NO_COUNT and b == UPDATE_AVAILABLE_NO_COUNT:
+        return UPDATE_AVAILABLE_NO_COUNT
+    if a == UPDATE_AVAILABLE_NO_COUNT:
+        return b if b > 1 else UPDATE_AVAILABLE_NO_COUNT
+    if b == UPDATE_AVAILABLE_NO_COUNT:
+        return a if a > 1 else UPDATE_AVAILABLE_NO_COUNT
+    return max(a, b)
+
+
+def _check_via_local_git(repo_dir: Path, branch: str = "main") -> Optional[int]:
+    """Count commits behind origin/<branch> or upstream/<branch> in a local checkout.
+
+    Checks both remotes and returns the larger behind-count, treating the
+    upstream original repo and the user's primary repo as a single update
+    source: an update from either one is surfaced.
+    """
+    head_sha = _git_stdout(["rev-parse", "HEAD"], cwd=repo_dir, timeout=5)
+    if not head_sha:
+        return None
+
+    origin_url = _git_stdout(["remote", "get-url", "origin"], cwd=repo_dir, timeout=5)
+    # For a known Hermes repo over SSH, avoid a FIDO2 prompt by doing an
+    # anonymous HTTPS ls-remote against the matching public HTTPS URL.
+    if _is_known_ssh_remote(origin_url):
+        checked = _check_via_rev(head_sha, _known_repo_https_url(origin_url))
         if checked == UPDATE_AVAILABLE_NO_COUNT:
             return 1
         return checked
 
-    # Installer checkouts are shallow (`git clone --depth 1`). On a shallow
-    # clone the history stops at a single commit, so a plain `git fetch` would
-    # unshallow the repo (dragging in the whole history) and
-    # `rev-list --count HEAD..origin/main` would report a huge bogus "behind"
-    # number (e.g. "12492 commits behind"). Detect shallow up front: fetch with
-    # --depth 1 to preserve the boundary and compare tip SHAs instead of
-    # counting. Full clones (developers, Docker dev images) keep the exact
-    # count path unchanged. Mirrors the desktop fix in apps/desktop/electron/main.cjs.
-    shallow = _git_stdout(["rev-parse", "--is-shallow-repository"], cwd=repo_dir)
+    shallow = _git_stdout(["rev-parse", "--is-shallow-repository"], cwd=repo_dir, timeout=5)
     is_shallow = shallow == "true"
+    head_time = _head_time(repo_dir)
 
-    try:
-        fetch_args = ["git", "fetch", "origin"]
-        if is_shallow:
-            fetch_args += ["--depth", "1"]
-        fetch_args.append("--quiet")
-        subprocess.run(
-            fetch_args,
-            capture_output=True, timeout=10,
-            cwd=str(repo_dir),
-        )
-    except Exception:
-        pass  # Offline or timeout — use stale refs, that's fine
+    origin_ref = _fetch_remote(repo_dir, "origin", branch, is_shallow)
+    upstream_ref = _fetch_remote(repo_dir, "upstream", branch, is_shallow)
 
-    if is_shallow:
-        # No history to count across the shallow boundary. `origin/main` may not
-        # be a tracking ref in a `clone --depth 1`, so prefer FETCH_HEAD (just
-        # updated by the fetch above) and fall back to origin/main.
-        head_rev = _git_stdout(["rev-parse", "HEAD"], cwd=repo_dir)
-        target_rev = (
-            _git_stdout(["rev-parse", "FETCH_HEAD"], cwd=repo_dir)
-            or _git_stdout(["rev-parse", "origin/main"], cwd=repo_dir)
-        )
-        if not head_rev or not target_rev:
-            return None
-        return 0 if head_rev == target_rev else UPDATE_AVAILABLE_NO_COUNT
+    if not origin_ref and not upstream_ref:
+        return None
 
-    try:
-        result = subprocess.run(
-            ["git", "rev-list", "--count", "HEAD..origin/main"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(repo_dir),
-        )
-        if result.returncode == 0:
-            return int(result.stdout.strip())
-    except Exception:
-        pass
-    return None
+    # Compute behind counts and containment while the temporary refs still exist.
+    origin_behind = _behind_for_ref(repo_dir, origin_ref, head_sha, head_time, is_shallow) if origin_ref else 0
+    upstream_behind = _behind_for_ref(repo_dir, upstream_ref, head_sha, head_time, is_shallow) if upstream_ref else 0
+
+    if origin_ref and upstream_ref:
+        upstream_contains_origin = _ref_contains_ref(repo_dir, upstream_ref, origin_ref)
+        origin_contains_upstream = _ref_contains_ref(repo_dir, origin_ref, upstream_ref)
+        if upstream_contains_origin and not origin_contains_upstream:
+            result = upstream_behind
+        elif origin_contains_upstream and not upstream_contains_origin:
+            result = origin_behind
+        else:
+            result = max(origin_behind, upstream_behind)
+    else:
+        result = _combine_behind(origin_behind, upstream_behind)
+
+    for ref in [origin_ref, upstream_ref]:
+        if ref:
+            _git_run(["update-ref", "-d", ref], cwd=repo_dir, timeout=5)
+
+    return result
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:
@@ -392,6 +511,7 @@ def _git_short_hash(repo_dir: Path, rev: str) -> Optional[str]:
             text=True,
             timeout=5,
             cwd=str(repo_dir),
+            creationflags=windows_hide_flags(),
         )
     except Exception:
         return None
@@ -426,7 +546,11 @@ def get_git_banner_state(repo_dir: Optional[Path] = None) -> Optional[dict]:
             pass
         return None
 
-    upstream = _git_short_hash(repo_dir, "origin/main")
+    compare_ref = "origin/main"
+    upstream = _git_short_hash(repo_dir, compare_ref)
+    if not upstream:
+        compare_ref = "upstream/main"
+        upstream = _git_short_hash(repo_dir, compare_ref)
     local = _git_short_hash(repo_dir, "HEAD")
     if not upstream or not local:
         # Live-git lookup failed (e.g. shallow clone without origin/main).
@@ -443,11 +567,12 @@ def get_git_banner_state(repo_dir: Optional[Path] = None) -> Optional[dict]:
     ahead = 0
     try:
         result = subprocess.run(
-            ["git", "rev-list", "--count", "origin/main..HEAD"],
+            ["git", "rev-list", "--count", f"{compare_ref}..HEAD"],
             capture_output=True,
             text=True,
             timeout=5,
             cwd=str(repo_dir),
+            creationflags=windows_hide_flags(),
         )
         if result.returncode == 0:
             ahead = int((result.stdout or "0").strip() or "0")
@@ -457,7 +582,7 @@ def get_git_banner_state(repo_dir: Optional[Path] = None) -> Optional[dict]:
     return {"upstream": upstream, "local": local, "ahead": max(ahead, 0)}
 
 
-_RELEASE_URL_BASE = "https://github.com/S1d11/zeus/releases/tag"
+_RELEASE_URL_BASE = "https://github.com/S1d11/hermes-agent/releases/tag"
 _latest_release_cache: Optional[tuple] = None  # (tag, url) once resolved
 
 
@@ -466,7 +591,7 @@ def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
 
     Local-only — runs ``git describe --tags --abbrev=0`` against the
     Hermes checkout. Cached per-process. Release URL always points at the
-    canonical S1d11/zeus repo (forks don't get a link).
+    canonical S1d11/hermes-agent repo (forks don't get a link).
     """
     global _latest_release_cache
     if _latest_release_cache is not None:
@@ -484,6 +609,7 @@ def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
             text=True,
             timeout=3,
             cwd=str(repo_dir),
+            creationflags=windows_hide_flags(),
         )
     except Exception:
         _latest_release_cache = ()

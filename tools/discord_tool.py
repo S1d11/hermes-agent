@@ -100,7 +100,7 @@ def _discord_request(
         headers={
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
-            "User-Agent": "Hermes (https://github.com/S1d11/zeus)",
+            "User-Agent": "Hermes (https://github.com/S1d11/hermes-agent)",
         },
     )
 

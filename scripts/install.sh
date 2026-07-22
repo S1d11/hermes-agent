@@ -43,8 +43,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Configuration
-REPO_URL_SSH="git@github.com:S1d11/zeus.git"
-REPO_URL_HTTPS="https://github.com/S1d11/zeus.git"
+REPO_URL_SSH="git@github.com:S1d11/hermes-agent.git"
+REPO_URL_HTTPS="https://github.com/S1d11/hermes-agent.git"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
@@ -1283,6 +1283,9 @@ clone_repo() {
     fi
 
     cd "$INSTALL_DIR"
+
+    # Make the original upstream repo available for dual-source updates.
+    git remote add upstream https://github.com/NousResearch/hermes-agent.git 2>/dev/null || true
 
     if [ -n "$INSTALL_COMMIT" ]; then
         log_info "Pinning checkout to commit $INSTALL_COMMIT..."

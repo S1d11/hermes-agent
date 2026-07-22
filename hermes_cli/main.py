@@ -62,6 +62,7 @@ except ModuleNotFoundError:
     pass
 
 import os
+import re
 import sys
 
 
@@ -6781,7 +6782,7 @@ def _is_fork(origin_url: Optional[str]) -> bool:
 
 
 def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
-    """Check if an 'upstream' remote already exists."""
+    """Check if an 'upstream' remote already exists with a configured URL."""
     try:
         result = subprocess.run(
             git_cmd + ["remote", "get-url", "upstream"],
@@ -6789,7 +6790,7 @@ def _has_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
             capture_output=True,
             text=True,
         )
-        return result.returncode == 0
+        return result.returncode == 0 and bool((result.stdout or "").strip())
     except Exception:
         return False
 
@@ -8306,7 +8307,10 @@ def _resolve_node_runtime_npm() -> str | None:
     # The first resolution was a Windows npm. Re-scan PATH skipping the
     # ``/mnt/*`` Windows drive mounts WSL injects, so a Linux-native npm that
     # came later on PATH is still found.
-    for directory in os.environ.get("PATH", "").split(os.pathsep):
+    # ``os.pathsep`` is ``;`` on native Windows (we returned above), but on
+    # WSL/POSIX it is ``:``. Use ``re.split`` so tests and cross-platform
+    # PATH strings are handled consistently.
+    for directory in re.split(r"[:;]", os.environ.get("PATH", "")):
         if not directory or directory.lower().startswith("/mnt/"):
             continue
         candidate = shutil.which("npm", path=directory)
@@ -9738,6 +9742,85 @@ def _cmd_update_pip(args):
     print("✓ Update complete! Restart hermes to use the new version.")
 
 
+def _fetch_best_update_ref(git_cmd: list[str], cwd: Path, branch: str) -> tuple[bool, str]:
+    """Fetch origin/<branch> and upstream/<branch>, then align the local
+    origin/<branch> ref to whichever remote is ahead.
+
+    This lets the rest of ``hermes update`` keep using ``origin/<branch>`` as
+    the single update source while transparently preferring upstream commits
+    when the fork is behind the original repo.
+
+    Returns (success, error_message_or_empty).
+    """
+    origin_fetch = subprocess.run(
+        git_cmd + ["fetch", "origin", branch],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if origin_fetch.returncode != 0:
+        return False, origin_fetch.stderr.strip() or "git fetch origin failed."
+
+    has_upstream = _has_upstream_remote(git_cmd, cwd)
+    if not has_upstream:
+        origin_url = _get_origin_url(git_cmd, cwd)
+        if _is_fork(origin_url) and _add_upstream_remote(git_cmd, cwd):
+            has_upstream = True
+
+    if has_upstream:
+        upstream_fetch = subprocess.run(
+            git_cmd + ["fetch", "upstream", branch],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+        )
+        if upstream_fetch.returncode != 0:
+            has_upstream = False
+
+    if not has_upstream:
+        return True, ""
+
+    origin_sha = subprocess.run(
+        git_cmd + ["rev-parse", f"origin/{branch}"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    upstream_sha = subprocess.run(
+        git_cmd + ["rev-parse", f"upstream/{branch}"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if origin_sha.returncode != 0 or upstream_sha.returncode != 0:
+        return True, ""
+    origin_val = origin_sha.stdout.strip()
+    upstream_val = upstream_sha.stdout.strip()
+    if not origin_val or not upstream_val or origin_val == upstream_val:
+        return True, ""
+
+    # If origin is an ancestor of upstream, upstream is ahead; point the local
+    # origin/<branch> ref at the upstream tip so the existing pull/reset path
+    # updates from upstream.
+    ancestor = subprocess.run(
+        git_cmd + ["merge-base", "--is-ancestor", f"origin/{branch}", f"upstream/{branch}"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if ancestor.returncode == 0:
+        update = subprocess.run(
+            git_cmd + ["update-ref", f"refs/remotes/origin/{branch}", upstream_val],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+        )
+        if update.returncode == 0:
+            logger.debug("[updates] aligned origin/%s to upstream tip %s", branch, upstream_val)
+
+    return True, ""
+
+
 def _cmd_update_impl(args, gateway_mode: bool):
     """Body of ``cmd_update`` — kept separate so the wrapper can always
     restore stdio even on ``sys.exit``."""
@@ -9899,14 +9982,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
         branch = _resolve_update_branch(args)
 
         print("→ Fetching updates...")
-        fetch_result = subprocess.run(
-            git_cmd + ["fetch", "origin", branch],
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if fetch_result.returncode != 0:
-            stderr = fetch_result.stderr.strip()
+        fetch_ok, fetch_error = _fetch_best_update_ref(git_cmd, PROJECT_ROOT, branch)
+        if not fetch_ok:
+            stderr = fetch_error or ""
             if "Could not resolve host" in stderr or "unable to access" in stderr:
                 print("✗ Network error — cannot reach the remote repository.")
                 print(f"  {stderr.splitlines()[0]}" if stderr else "")
@@ -9917,7 +9995,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     "✗ Authentication failed — check your git credentials or SSH key."
                 )
             else:
-                print("✗ Failed to fetch updates from origin.")
+                print("✗ Failed to fetch updates.")
                 if stderr:
                     print(f"  {stderr.splitlines()[0]}")
             sys.exit(1)
@@ -10000,80 +10078,107 @@ def _cmd_update_impl(args, gateway_mode: bool):
         if commit_count == 0:
             _invalidate_update_cache()
 
-            # Even if origin is up to date, the fork may be behind upstream
-            if is_fork and branch == "main":
+            # For forks, also consult the upstream original repo. If upstream is
+            # ahead and the sync succeeds, the local checkout changed even though
+            # origin was up-to-date; we must continue so the dependency install
+            # step runs against the new code.
+            sync_changed_head = False
+            if is_fork:
+                pre_sync_sha = _capture_head_sha(git_cmd, PROJECT_ROOT)
                 _sync_with_upstream_if_needed(git_cmd, PROJECT_ROOT)
-
-            # Restore stash and switch back to original branch if we moved
-            if auto_stash_ref is not None:
-                _restore_stashed_changes(
-                    git_cmd,
-                    PROJECT_ROOT,
-                    auto_stash_ref,
-                    prompt_user=prompt_for_restore,
-                    input_fn=gw_input_fn,
-                )
-            if current_branch not in {branch, "HEAD"}:
-                subprocess.run(
-                    git_cmd + ["checkout", current_branch],
-                    cwd=PROJECT_ROOT,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-
-            # A current checkout does NOT imply a healthy install: a previous
-            # dependency sync may have failed partway (classic on Windows,
-            # where a running gateway/desktop backend keeps .pyd files locked
-            # and uv/pip dies with access-denied, stranding the venv between
-            # versions). Probe the venv's core imports and repair if broken —
-            # otherwise "Already up to date!" gaslights the user while their
-            # install stays bricked.
-            healthy, detail = _venv_core_imports_healthy()
-            if not healthy:
-                print("⚠ Checkout is current, but the venv is unhealthy:")
-                print(f"  {detail}")
-                print("→ Repairing Python dependencies...")
-                _write_update_incomplete_marker()
-                from hermes_cli.managed_uv import ensure_uv
-
-                repair_uv = ensure_uv()
-                # A managed install whose venv is gone entirely (interrupted
-                # repair after the old venv was moved aside) needs the venv
-                # recreated before dependencies can be installed into it.
-                venv_python_missing = not (
-                    PROJECT_ROOT
-                    / "venv"
-                    / ("Scripts" if _is_windows() else "bin")
-                    / ("python.exe" if _is_windows() else "python")
-                ).exists()
-                if venv_python_missing and repair_uv:
-                    print("→ Recreating virtual environment...")
+                post_sync_sha = _capture_head_sha(git_cmd, PROJECT_ROOT)
+                if pre_sync_sha and post_sync_sha and pre_sync_sha != post_sync_sha:
                     subprocess.run(
-                        [repair_uv, "venv", "venv"],
+                        git_cmd + ["fetch", "origin", branch],
                         cwd=PROJECT_ROOT,
+                        capture_output=True,
+                        text=True,
                         check=False,
                     )
-                if repair_uv:
-                    repair_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
-                    _install_python_dependencies_with_optional_fallback(
-                        [repair_uv, "pip"], env=repair_env, group="all"
+                    try:
+                        recount = subprocess.run(
+                            git_cmd + ["rev-list", f"HEAD..origin/{branch}", "--count"],
+                            cwd=PROJECT_ROOT,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                        commit_count = max(1, int(recount.stdout.strip()))
+                    except Exception:
+                        commit_count = 1
+                    sync_changed_head = True
+
+            if not sync_changed_head:
+                # Restore stash and switch back to original branch if we moved
+                if auto_stash_ref is not None:
+                    _restore_stashed_changes(
+                        git_cmd,
+                        PROJECT_ROOT,
+                        auto_stash_ref,
+                        prompt_user=prompt_for_restore,
+                        input_fn=gw_input_fn,
                     )
-                else:
-                    _install_python_dependencies_with_optional_fallback(
-                        [sys.executable, "-m", "pip"], group="all"
+                if current_branch not in {branch, "HEAD"}:
+                    subprocess.run(
+                        git_cmd + ["checkout", current_branch],
+                        cwd=PROJECT_ROOT,
+                        capture_output=True,
+                        text=True,
+                        check=False,
                     )
-                _clear_update_incomplete_marker()
-                healthy_after, detail_after = _venv_core_imports_healthy()
-                if healthy_after:
-                    print("✓ Dependencies repaired!")
+
+                # A current checkout does NOT imply a healthy install: a previous
+                # dependency sync may have failed partway (classic on Windows,
+                # where a running gateway/desktop backend keeps .pyd files locked
+                # and uv/pip dies with access-denied, stranding the venv between
+                # versions). Probe the venv's core imports and repair if broken —
+                # otherwise "Already up to date!" gaslights the user while their
+                # install stays bricked.
+                healthy, detail = _venv_core_imports_healthy()
+                if not healthy:
+                    print("⚠ Checkout is current, but the venv is unhealthy:")
+                    print(f"  {detail}")
+                    print("→ Repairing Python dependencies...")
+                    _write_update_incomplete_marker()
+                    from hermes_cli.managed_uv import ensure_uv
+
+                    repair_uv = ensure_uv()
+                    # A managed install whose venv is gone entirely (interrupted
+                    # repair after the old venv was moved aside) needs the venv
+                    # recreated before dependencies can be installed into it.
+                    venv_python_missing = not (
+                        PROJECT_ROOT
+                        / "venv"
+                        / ("Scripts" if _is_windows() else "bin")
+                        / ("python.exe" if _is_windows() else "python")
+                    ).exists()
+                    if venv_python_missing and repair_uv:
+                        print("→ Recreating virtual environment...")
+                        subprocess.run(
+                            [repair_uv, "venv", "venv"],
+                            cwd=PROJECT_ROOT,
+                            check=False,
+                        )
+                    if repair_uv:
+                        repair_env = {**os.environ, "VIRTUAL_ENV": str(PROJECT_ROOT / "venv")}
+                        _install_python_dependencies_with_optional_fallback(
+                            [repair_uv, "pip"], env=repair_env, group="all"
+                        )
+                    else:
+                        _install_python_dependencies_with_optional_fallback(
+                            [sys.executable, "-m", "pip"], group="all"
+                        )
+                    _clear_update_incomplete_marker()
+                    healthy_after, detail_after = _venv_core_imports_healthy()
+                    if healthy_after:
+                        print("✓ Dependencies repaired!")
+                    else:
+                        print(f"⚠ Venv still unhealthy after repair: {detail_after}")
+                        print("  Close all Hermes windows/gateways and re-run: hermes update")
                 else:
-                    print(f"⚠ Venv still unhealthy after repair: {detail_after}")
-                    print("  Close all Hermes windows/gateways and re-run: hermes update")
-            else:
-                print("✓ Already up to date!")
-            _resume_windows_gateways_after_update(_windows_gateway_resume)
-            return
+                    print("✓ Already up to date!")
+                _resume_windows_gateways_after_update(_windows_gateway_resume)
+                return
 
         print(f"→ Found {commit_count} new commit(s)")
 
@@ -10193,10 +10298,6 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print(
                 f"  ✓ Cleared {removed} stale __pycache__ director{'y' if removed == 1 else 'ies'}"
             )
-
-        # Fork upstream sync logic (only for main branch on forks)
-        if is_fork and branch == "main":
-            _sync_with_upstream_if_needed(git_cmd, PROJECT_ROOT)
 
         # Reinstall Python dependencies. Prefer .[all], but if one optional extra
         # breaks on this machine, keep base deps and reinstall the remaining extras

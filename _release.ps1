@@ -51,7 +51,7 @@ $bodyJson = @{
     prerelease = $false
 } | ConvertTo-Json -Depth 5 -Compress
 
-$resp = Invoke-RestMethod -Uri "https://api.github.com/repos/S1d11/zeus/releases" -Method Post -Headers $headers -Body ([System.Text.Encoding]::UTF8.GetBytes($bodyJson)) -ContentType "application/json; charset=utf-8"
+$resp = Invoke-RestMethod -Uri "https://api.github.com/repos/S1d11/hermes-agent/releases" -Method Post -Headers $headers -Body ([System.Text.Encoding]::UTF8.GetBytes($bodyJson)) -ContentType "application/json; charset=utf-8"
 $releaseId = $resp.id
 Write-Output "Release created: $($resp.html_url)"
 
@@ -71,7 +71,7 @@ foreach ($asset in $assets) {
     $bytes = [System.IO.File]::ReadAllBytes($filePath)
     Write-Output "  Size: $($bytes.Length) bytes"
 
-    $uploadUrl = "https://uploads.github.com/repos/S1d11/zeus/releases/$releaseId/assets?name=$([System.Uri]::EscapeDataString($fileName))"
+    $uploadUrl = "https://uploads.github.com/repos/S1d11/hermes-agent/releases/$releaseId/assets?name=$([System.Uri]::EscapeDataString($fileName))"
 
     $uploadHeaders = @{
         Authorization = "Bearer $token"

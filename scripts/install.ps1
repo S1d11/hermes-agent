@@ -136,8 +136,8 @@ foreach ($tmpVar in @('TEMP', 'TMP')) {
 # Configuration
 # ============================================================================
 
-$RepoUrlSsh = "git@github.com:S1d11/zeus.git"
-$RepoUrlHttps = "https://github.com/S1d11/zeus.git"
+$RepoUrlSsh = "git@github.com:S1d11/hermes-agent.git"
+$RepoUrlHttps = "https://github.com/S1d11/hermes-agent.git"
 $PythonVersion = "3.11"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system
@@ -1634,6 +1634,11 @@ function Install-Repository {
             } catch { }
         }
 
+        if ($cloneSuccess) {
+            # Ensure the upstream original repo is available for dual-source updates.
+            try { git -C $InstallDir remote add upstream https://github.com/NousResearch/hermes-agent.git 2>$null } catch {}
+        }
+
         # Fallback: download ZIP archive (bypasses git file I/O issues entirely)
         if (-not $cloneSuccess) {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
@@ -1643,13 +1648,13 @@ function Install-Repository {
                 # for.  GitHub supports archive URLs for commits, tags, and
                 # branches; we honour Commit > Tag > Branch.
                 if ($Commit) {
-                    $zipUrl = "https://github.com/S1d11/zeus/archive/$Commit.zip"
+                    $zipUrl = "https://github.com/S1d11/hermes-agent/archive/$Commit.zip"
                     $zipLabel = $Commit
                 } elseif ($Tag) {
-                    $zipUrl = "https://github.com/S1d11/zeus/archive/refs/tags/$Tag.zip"
+                    $zipUrl = "https://github.com/S1d11/hermes-agent/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
                 } else {
-                    $zipUrl = "https://github.com/S1d11/zeus/archive/refs/heads/$Branch.zip"
+                    $zipUrl = "https://github.com/S1d11/hermes-agent/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
                 $zipPath = "$env:TEMP\hermes-agent-$zipLabel.zip"
@@ -1671,6 +1676,7 @@ function Install-Repository {
                     git -c windows.appendAtomically=false init 2>$null
                     git -c windows.appendAtomically=false config windows.appendAtomically false 2>$null
                     git remote add origin $RepoUrlHttps 2>$null
+                    git remote add upstream https://github.com/NousResearch/hermes-agent.git 2>$null
                     Pop-Location
                     Write-Success "Git repo initialized for future updates"
 

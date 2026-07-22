@@ -225,6 +225,49 @@ def _remove_path(path: Path) -> bool:
     return False
 
 
+def _windows_shortcut_targets() -> "list[Path]":
+    """Return every Start Menu / Desktop shortcut the installer may have created.
+
+    Covers the PowerShell installer (``New-DesktopShortcuts``) and the NSIS
+    packaged installer (electron-builder ``createStartMenuShortcut``). Best-
+    effort: missing paths are skipped.
+    """
+    if sys.platform != "win32":
+        return []
+
+    home = Path.home()
+    appdata = os.environ.get("APPDATA") or str(home / "AppData" / "Roaming")
+    userprofile = str(home)
+    public = os.environ.get("PUBLIC")
+
+    programs = Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+    targets: list[Path] = [
+        # install.ps1 New-DesktopShortcuts
+        programs / "Hermes.lnk",
+        Path(userprofile) / "Desktop" / "Hermes.lnk",
+        # NSIS per-user start-menu folder
+        programs / "Hermes",
+    ]
+    if public:
+        targets.append(Path(public) / "Desktop" / "Hermes.lnk")
+
+    return targets
+
+
+def _remove_windows_shortcuts() -> "list[Path]":
+    """Remove Windows Start Menu / Desktop shortcuts created by the installer."""
+    removed: list[Path] = []
+    if sys.platform != "win32":
+        return removed
+
+    log_info("Removing Windows desktop / Start Menu shortcuts...")
+    for path in _windows_shortcut_targets():
+        if (path.exists() or path.is_symlink()) and _remove_path(path):
+            log_success(f"Removed {path}")
+            removed.append(path)
+    return removed
+
+
 def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = True) -> "list[Path]":
     """Remove the desktop GUI's artifacts, leaving the agent + user data intact.
 
@@ -232,6 +275,7 @@ def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = 
       - source-built GUI artifacts (dist/release/node_modules/build-stamp)
       - the packaged app bundle / install dir (best-effort; deb/rpm need the
         system package manager and are reported, not force-removed)
+      - Windows Start Menu / Desktop shortcuts
       - the Electron ``userData`` directory (unless ``remove_userdata=False``)
 
     Never touches ``hermes-agent/hermes_cli`` (agent source), ``venv/``, or any
@@ -259,6 +303,9 @@ def uninstall_gui(hermes_home: "Path | None" = None, *, remove_userdata: bool = 
                 removed.append(path)
     if not found_packaged:
         log_info("No packaged desktop app found in standard locations")
+
+    # Windows-only: remove installer-created shortcuts.
+    removed.extend(_remove_windows_shortcuts())
 
     if remove_userdata:
         userdata = desktop_userdata_dir()

@@ -9,7 +9,7 @@ import { $messages } from '@/store/session'
 import { $autoSpeakReplies, setAutoSpeakReplies } from '@/store/voice-prefs'
 
 import type { ComposerTarget } from '../focus'
-import { onComposerVoiceToggleRequest } from '../focus'
+import { onComposerVoiceStartRequest, onComposerVoiceToggleRequest } from '../focus'
 import type { ChatBarProps } from '../types'
 
 import { useAutoSpeakReplies } from './use-auto-speak-replies'

@@ -4,11 +4,11 @@
 
 # Hermes ☤
 <p align="center">
-  <a href="https://github.com/S1d11/zeus">Hermes</a> | <a href="https://github.com/S1d11/zeus/releases">Downloads</a>
+  <a href="https://github.com/S1d11/hermes-agent">Hermes</a> | <a href="https://github.com/S1d11/hermes-agent/releases">Downloads</a>
 </p>
 <p align="center">
-  <a href="https://github.com/S1d11/zeus/releases"><img src="https://img.shields.io/github/v/release/S1d11/zeus?style=for-the-badge&label=Latest%20Release" alt="Latest Release"></a>
-  <a href="https://github.com/S1d11/zeus/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/S1d11/hermes-agent/releases"><img src="https://img.shields.io/github/v/release/S1d11/hermes-agent?style=for-the-badge&label=Latest%20Release" alt="Latest Release"></a>
+  <a href="https://github.com/S1d11/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
   <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
@@ -37,15 +37,15 @@ Use any model you want — OpenRouter, OpenAI, your own endpoint, and many other
 Run this in PowerShell:
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/S1d11/zeus/main/scripts/install.ps1)
+iex (irm https://raw.githubusercontent.com/S1d11/hermes-agent/main/scripts/install.ps1)
 ```
 
-Or download the **[Windows installer](https://github.com/S1d11/zeus/releases/latest)** from the Releases page — it includes everything you need (Python, Node.js, ripgrep, ffmpeg, and a portable Git Bash).
+Or download the **[Windows installer](https://github.com/S1d11/hermes-agent/releases/latest)** from the Releases page — it includes everything you need (Python, Node.js, ripgrep, ffmpeg, and a portable Git Bash).
 
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/S1d11/zeus/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/S1d11/hermes-agent/main/scripts/install.sh | bash
 ```
 
 The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\hermes\git` — no admin required, completely isolated from any system Git install). Hermes uses this bundled Git Bash to run shell commands.
@@ -61,7 +61,7 @@ hermes              # start chatting!
 
 ### Desktop App
 
-Download the latest **[Hermes Desktop](https://github.com/S1d11/zeus/releases/latest)** installer for Windows. The desktop app provides a full GUI with chat, settings, MCP server management, connections, and auto-updates.
+Download the latest **[Hermes Desktop](https://github.com/S1d11/hermes-agent/releases/latest)** installer for Windows. The desktop app provides a full GUI with chat, settings, MCP server management, connections, and auto-updates.
 
 ---
 
@@ -141,8 +141,8 @@ What gets imported:
 ## Development
 
 ```bash
-git clone https://github.com/S1d11/zeus.git
-cd hermes/hermes-agent
+git clone https://github.com/S1d11/hermes-agent.git
+cd hermes-agent
 source .venv/bin/activate   # or: source venv/bin/activate
 scripts/run_tests.sh
 ```
@@ -166,7 +166,7 @@ scripts/run_tests.sh
 
 ## Community
 
-- 🐛 [Issues](https://github.com/S1d11/zeus/issues) — Report bugs and request features
+- 🐛 [Issues](https://github.com/S1d11/hermes-agent/issues) — Report bugs and request features
 - 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Linux desktop-control MCP server for Hermes and other MCP hosts, with AT-SPI accessibility trees, Wayland/X11 input, screenshots, and compositor window targeting.
 
 ---

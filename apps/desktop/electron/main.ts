@@ -129,7 +129,14 @@ import {
   sandboxFallbackFromEnv,
   sandboxPreflight
 } from './update-relaunch'
-import { isOfficialSshRemote, OFFICIAL_REPO_HTTPS_URL } from './update-remote'
+import {
+  PRIMARY_REPO_CANONICAL,
+  PRIMARY_REPO_HTTPS_URL,
+  UPSTREAM_REPO_CANONICAL,
+  UPSTREAM_REPO_HTTPS_URL,
+  canonicalGitHubRemote,
+  resolveSshRemoteUrl
+} from './update-remote'
 import { spawnUpdaterProcess } from './updater-process'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import {
@@ -2151,10 +2158,14 @@ function runGit(args, options: any = {}): Promise<{ code: number; stdout: string
 
 const firstLine = text => (text || '').split('\n').find(Boolean) || ''
 
-async function getOriginUrl(updateRoot) {
-  const origin = await runGit(['remote', 'get-url', 'origin'], { cwd: updateRoot })
+async function getRemoteUrl(updateRoot, remote) {
+  const result = await runGit(['remote', 'get-url', remote], { cwd: updateRoot })
 
-  return origin.code === 0 ? origin.stdout.trim() : ''
+  return result.code === 0 ? result.stdout.trim() : ''
+}
+
+function getOriginUrl(updateRoot) {
+  return getRemoteUrl(updateRoot, 'origin')
 }
 
 function emitUpdateProgress(payload) {
@@ -2178,7 +2189,7 @@ async function resolveHealedBranch(updateRoot, branch) {
   }
 
   const originUrl = await getOriginUrl(updateRoot)
-  const remote = isOfficialSshRemote(originUrl) ? OFFICIAL_REPO_HTTPS_URL : 'origin'
+  const remote = resolveSshRemoteUrl(originUrl) || 'origin'
   const probe = await runGit(['ls-remote', '--exit-code', '--heads', remote, branch], { cwd: updateRoot })
 
   if (probe.code !== 2) {
@@ -2193,6 +2204,151 @@ async function resolveHealedBranch(updateRoot, branch) {
   }
 
   return 'main'
+}
+
+// Probe one remote for updates. Uses a temporary ref under refs/hermes-update/
+// so we can compare origin and upstream without mutating the user's normal
+// tracking refs, and so SSH-remapped fetches write to a predictable local name.
+// ``fallbackUrl`` lets us probe the upstream/primary repo even when that remote
+// isn't configured locally.
+async function probeRemoteBranch(updateRoot, remote, branch, currentSha, currentTime, isShallow, fallbackUrl = null) {
+  let remoteUrl = await getRemoteUrl(updateRoot, remote)
+
+  if (!remoteUrl && fallbackUrl) {
+    remoteUrl = fallbackUrl
+  }
+
+  if (!remoteUrl) {
+    return null
+  }
+
+  const effectiveUrl = resolveSshRemoteUrl(remoteUrl) || remoteUrl
+  const tempRef = `refs/hermes-update/${remote}`
+  const depthArgs = isShallow ? ['--depth', '1'] : []
+
+  const fetched = await runGit(
+    ['fetch', ...depthArgs, effectiveUrl, `+refs/heads/${branch}:${tempRef}`],
+    { cwd: updateRoot }
+  )
+
+  if (fetched.code !== 0) {
+    return {
+      remote,
+      error: 'fetch-failed',
+      message: firstLine(fetched.stderr) || `git fetch ${effectiveUrl} failed.`
+    }
+  }
+
+  const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
+
+  const targetSha = await git(['rev-parse', tempRef])
+
+  if (!targetSha) {
+    return {
+      remote,
+      error: 'fetch-failed',
+      message: `Could not resolve ${tempRef}.`
+    }
+  }
+
+  if (targetSha === currentSha) {
+    return { remote, remoteUrl, targetSha, behind: 0, ref: tempRef, commitTime: currentTime }
+  }
+
+  const ancestorCheck = await runGit(['merge-base', '--is-ancestor', 'HEAD', tempRef], {
+    cwd: updateRoot
+  })
+  const isAncestor = ancestorCheck.code === 0
+
+  let behind = 0
+  let hasMergeBase = isAncestor
+
+  if (isAncestor) {
+    const countStr = shouldCountCommits({ isShallow, hasMergeBase })
+      ? await git(['rev-list', `HEAD..${tempRef}`, '--count'])
+      : ''
+    behind = resolveBehindCount({
+      countStr,
+      currentSha,
+      targetSha,
+      isShallow,
+      hasMergeBase
+    })
+  } else if (isShallow) {
+    // Shallow clones may not have enough history to establish ancestry. Fall
+    // back to the commit timestamp so an older remote doesn't look like an
+    // available update.
+    const targetTime = Number.parseInt(await git(['log', '-1', '--format=%ct', tempRef]), 10)
+
+    if (!Number.isNaN(targetTime) && (!currentTime || targetTime > currentTime)) {
+      behind = 1
+    }
+  }
+
+  const commitTime = Number.parseInt(await git(['log', '-1', '--format=%ct', tempRef]), 10)
+
+  return {
+    remote,
+    remoteUrl,
+    targetSha,
+    behind,
+    ref: tempRef,
+    hasMergeBase,
+    isAncestor,
+    commitTime: Number.isNaN(commitTime) ? null : commitTime * 1000
+  }
+}
+
+// True when `candidate` is a strict descendant of `other` (it contains all of
+// `other`'s commits plus additional ones). Used to pick upstream when it is
+// ahead of origin, or origin when it is ahead of upstream.
+async function remoteContainsRef(updateRoot, candidateRef, otherRef) {
+  const result = await runGit(['merge-base', '--is-ancestor', otherRef, candidateRef], {
+    cwd: updateRoot
+  })
+
+  return result.code === 0
+}
+
+// Given update probes from origin and upstream, pick the one we should update
+// from. If one remote contains the other, prefer the descendant (it has the
+// most commits). If both are valid updates and diverged, prefer the one with
+// more new commits, breaking ties toward upstream.
+async function chooseBestRemote(updateRoot, candidates) {
+  const valid = candidates.filter(c => !c.error && c.behind > 0)
+
+  if (valid.length === 0) {
+    return candidates.find(c => !c.error) || null
+  }
+
+  if (valid.length === 1) {
+    return valid[0]
+  }
+
+  const [a, b] = valid
+  const aContainsB = await remoteContainsRef(updateRoot, a.ref, b.ref)
+  const bContainsA = await remoteContainsRef(updateRoot, b.ref, a.ref)
+
+  if (aContainsB && !bContainsA) {
+    return a
+  }
+
+  if (bContainsA && !aContainsB) {
+    return b
+  }
+
+  if (a.behind !== b.behind) {
+    return a.behind > b.behind ? a : b
+  }
+
+  // Diverged or equal; upstream is the canonical source of truth.
+  return a.remote === 'upstream' ? a : b
+}
+
+async function cleanupUpdateRefs(updateRoot) {
+  for (const remote of ['origin', 'upstream']) {
+    await runGit(['update-ref', '-d', `refs/hermes-update/${remote}`], { cwd: updateRoot })
+  }
 }
 
 async function checkUpdates() {
@@ -2211,38 +2367,69 @@ async function checkUpdates() {
   }
 
   branch = await resolveHealedBranch(updateRoot, branch)
-  const originUrl = await getOriginUrl(updateRoot)
 
-  if (isOfficialSshRemote(originUrl)) {
-    const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
+  const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
 
-    const [currentSha, target, dirtyStr, currentBranch] = await Promise.all([
-      git(['rev-parse', 'HEAD']),
-      runGit(['ls-remote', OFFICIAL_REPO_HTTPS_URL, `refs/heads/${branch}`], { cwd: updateRoot }),
-      git(['status', '--porcelain']),
-      git(['rev-parse', '--abbrev-ref', 'HEAD'])
+  const [currentSha, currentBranch, dirtyStr, shallowStr, headTimeStr] = await Promise.all([
+    git(['rev-parse', 'HEAD']),
+    git(['rev-parse', '--abbrev-ref', 'HEAD']),
+    git(['status', '--porcelain']),
+    git(['rev-parse', '--is-shallow-repository']),
+    git(['log', '-1', '--format=%ct', 'HEAD'])
+  ])
+
+  const isShallow = shallowStr === 'true'
+  const currentTime = Number.parseInt(headTimeStr, 10)
+
+  // If only one of the two known Hermes remotes is configured, infer the other
+  // from the origin URL so both the primary repo and the upstream repo are
+  // checked for updates.
+  const originUrl = await getRemoteUrl(updateRoot, 'origin')
+  const originCanonical = canonicalGitHubRemote(originUrl)
+  let upstreamFallbackUrl = null
+  if (originCanonical === PRIMARY_REPO_CANONICAL) {
+    upstreamFallbackUrl = UPSTREAM_REPO_HTTPS_URL
+  } else if (originCanonical === UPSTREAM_REPO_CANONICAL) {
+    upstreamFallbackUrl = PRIMARY_REPO_HTTPS_URL
+  }
+
+  // Check both the user's repo (origin) and the upstream original repo.
+  const candidates = (
+    await Promise.all([
+      probeRemoteBranch(updateRoot, 'origin', branch, currentSha, currentTime, isShallow),
+      probeRemoteBranch(updateRoot, 'upstream', branch, currentSha, currentTime, isShallow, upstreamFallbackUrl)
     ])
+  ).filter(Boolean)
 
-    const targetSha = firstLine(target.stdout).split(/\s+/)[0] || ''
+  const reachable = candidates.filter(c => !c.error)
 
-    if (target.code !== 0 || !targetSha) {
-      return {
-        supported: true,
-        branch,
-        error: 'fetch-failed',
-        message: firstLine(target.stderr) || 'git ls-remote failed.',
-        hermesRoot: updateRoot,
-        fetchedAt: Date.now()
-      }
-    }
+  if (reachable.length === 0) {
+    const firstError = candidates.find(c => c.error)
+    await cleanupUpdateRefs(updateRoot)
 
     return {
       supported: true,
       branch,
+      error: firstError?.error || 'fetch-failed',
+      message: firstError?.message || 'Could not fetch any update source.',
+      hermesRoot: updateRoot,
+      fetchedAt: Date.now()
+    }
+  }
+
+  const best = await chooseBestRemote(updateRoot, reachable)
+  const commits = best && best.behind > 0 ? await readCommitLog(updateRoot, best.ref) : []
+
+  await cleanupUpdateRefs(updateRoot)
+
+  if (!best) {
+    return {
+      supported: true,
+      branch,
       currentBranch,
-      behind: currentSha && currentSha === targetSha ? 0 : 1,
+      behind: 0,
       currentSha,
-      targetSha,
+      targetSha: currentSha,
       commits: [],
       dirty: dirtyStr.length > 0,
       hermesRoot: updateRoot,
@@ -2250,60 +2437,14 @@ async function checkUpdates() {
     }
   }
 
-  const fetched = await runGit(['fetch', '--quiet', 'origin', branch], { cwd: updateRoot })
-
-  if (fetched.code !== 0) {
-    return {
-      supported: true,
-      branch,
-      error: 'fetch-failed',
-      message: firstLine(fetched.stderr) || 'git fetch failed.',
-      hermesRoot: updateRoot,
-      fetchedAt: Date.now()
-    }
-  }
-
-  const git = args => runGit(args, { cwd: updateRoot }).then(r => r.stdout.trim())
-
-  const [currentSha, targetSha, dirtyStr, currentBranch, shallowStr, mergeBaseStr] = await Promise.all([
-    git(['rev-parse', 'HEAD']),
-    git(['rev-parse', `origin/${branch}`]),
-    git(['status', '--porcelain']),
-    git(['rev-parse', '--abbrev-ref', 'HEAD']),
-    git(['rev-parse', '--is-shallow-repository']),
-    // merge-base exits non-zero with empty stdout when HEAD shares no common
-    // ancestor with the freshly fetched tip — exactly the shallow-clone case.
-    git(['merge-base', 'HEAD', `origin/${branch}`])
-  ])
-
-  const isShallow = shallowStr === 'true'
-  const hasMergeBase = Boolean(mergeBaseStr)
-
-  // Only enumerate the commit count when it is meaningful. On a shallow checkout
-  // with no merge-base, `rev-list --count` walks the entire remote ancestry
-  // (thousands of commits, see #51922) and resolveBehindCount discards the
-  // result anyway in favour of a SHA compare — so skip the expensive query.
-  const countStr = shouldCountCommits({ isShallow, hasMergeBase })
-    ? await git(['rev-list', `HEAD..origin/${branch}`, '--count'])
-    : ''
-
-  const behind = resolveBehindCount({
-    countStr,
-    currentSha,
-    targetSha,
-    isShallow,
-    hasMergeBase
-  })
-
-  const commits = behind > 0 ? await readCommitLog(updateRoot, branch) : []
-
   return {
     supported: true,
     branch,
     currentBranch,
-    behind,
+    targetRemote: best.remote,
+    behind: best.behind,
     currentSha,
-    targetSha,
+    targetSha: best.targetSha,
     commits,
     dirty: dirtyStr.length > 0,
     hermesRoot: updateRoot,
@@ -2311,12 +2452,12 @@ async function checkUpdates() {
   }
 }
 
-async function readCommitLog(cwd, branch) {
+async function readCommitLog(cwd, ref) {
   const SEP = '\x1f'
   const REC = '\x1e'
 
   const { stdout } = await runGit(
-    ['log', `HEAD..origin/${branch}`, `--pretty=format:%H${SEP}%s${SEP}%an${SEP}%at${REC}`, '-n', '40'],
+    ['log', `HEAD..${ref}`, `--pretty=format:%H${SEP}%s${SEP}%an${SEP}%at${REC}`, '-n', '40'],
     { cwd }
   )
 

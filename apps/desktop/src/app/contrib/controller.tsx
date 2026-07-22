@@ -11,6 +11,7 @@ import { LayoutTreeRoot } from '@/components/pane-shell/tree/renderer'
 import type { DoubleTapContext } from '@/components/pane-shell/tree/renderer/drag-session'
 import {
   $layoutTree,
+  applyTree,
   bindTreeSideVisibility,
   declareDefaultTree,
   dismissTreePane,
@@ -62,6 +63,7 @@ import {
   WorkspaceTabMenu
 } from '../chat/session-tile'
 import { $terminalTakeover, setTerminalTakeover } from '../right-sidebar/store'
+import { $terminalPosition, type TerminalPosition } from '@/store/terminal-position'
 import { $workspaceIsPage } from '../routes'
 
 import { FilesPane, LogsPane, PreviewRailPane, ReviewPaneContent } from './panes'
@@ -75,6 +77,119 @@ import { ContribWiring, WiredPane } from './wiring'
  * contributions (payload = StatusbarItem). Core registers its items through
  * the same calls a plugin would use.
  */
+
+// ---------------------------------------------------------------------------
+// Terminal position-aware helpers.
+// ---------------------------------------------------------------------------
+
+function terminalPaneData(position: TerminalPosition) {
+  // Side-docked terminal is a fixed-width right-hand column; bottom-docked is
+  // a fixed-height row. Auto keeps the legacy right-column shape (terminal
+  // below a collapsible rail row), sized by height.
+  const base = { placement: 'bottom' as const, revealOnPreset: true }
+
+  switch (position) {
+    case 'side':
+      return {
+        ...base,
+        width: '20vw',
+        minWidth: '18rem',
+        maxWidth: '30rem'
+      }
+    case 'bottom':
+      return {
+        ...base,
+        height: '20vh',
+        minHeight: '7.5rem',
+        maxHeight: '80vh'
+      }
+    default: // 'auto'
+      return {
+        ...base,
+        height: '20vh',
+        minHeight: '7.5rem',
+        maxHeight: '80vh'
+      }
+  }
+}
+
+const RAIL_ROW = split(
+  'row',
+  [
+    group(['review'], { id: 'grp-review' }),
+    group(['preview'], { id: 'grp-preview' }),
+    group(['files'], { id: 'grp-files' })
+  ],
+  [1, 1, 1.2],
+  'spl-rail'
+)
+
+function buildDefaultTree(position: TerminalPosition) {
+  switch (position) {
+    case 'bottom':
+      return split(
+        'column',
+        [
+          split(
+            'row',
+            [
+              group(['sessions'], { id: 'grp-sessions' }),
+              group(['workspace'], { id: 'grp-main' }),
+              RAIL_ROW
+            ],
+            [1, 3.2, 1.2],
+            'spl-top'
+          ),
+          group(['terminal'], { id: 'grp-terminal' })
+        ],
+        [3, 1],
+        'spl-root'
+      )
+    case 'side':
+      return split(
+        'row',
+        [
+          group(['sessions'], { id: 'grp-sessions' }),
+          group(['workspace'], { id: 'grp-main' }),
+          RAIL_ROW,
+          group(['terminal'], { id: 'grp-terminal' })
+        ],
+        [1, 3.2, 1.2, 1],
+        'spl-root'
+      )
+    default: // 'auto'
+      return split(
+        'row',
+        [
+          group(['sessions'], { id: 'grp-sessions' }),
+          group(['workspace'], { id: 'grp-main' }),
+          split(
+            'column',
+            [RAIL_ROW, group(['terminal'], { id: 'grp-terminal' })],
+            [1.6, 1],
+            'spl-right'
+          )
+        ],
+        [1, 3.4, 1.25],
+        'spl-root'
+      )
+  }
+}
+
+function registerTerminalPane(position: TerminalPosition) {
+  registry.register({
+    id: 'terminal',
+    area: 'panes',
+    title: 'terminal',
+    data: terminalPaneData(position),
+    render: () => <WiredPane part="terminal" />
+  })
+}
+
+// The initial/default tree is built from the persisted terminal position so the
+// first render matches the user's preference. The listener below reacts to changes.
+const initialTerminalPosition = $terminalPosition.get()
+const DEFAULT_TREE = buildDefaultTree(initialTerminalPosition)
 
 // ---------------------------------------------------------------------------
 // Pane contributions. `data.placement` = semantic role for grid presets;
@@ -155,18 +270,10 @@ registry.registerMany([
     },
     render: renderWorkspacePane
   },
-  {
-    id: 'terminal',
-    area: 'panes',
-    title: 'terminal',
-    // revealOnPreset: choosing a layout that places the terminal (e.g.
-    // "Terminal deck") turns takeover on so the zone actually shows, instead of
-    // staying collapsed behind the ⌃` toggle. height sizes the fixed track (a
-    // single-pane zone declaring a height is a fixed track — the preset weight
-    // is moot): a short deck, not a third of the window.
-    data: { placement: 'bottom', height: '20vh', minHeight: '7.5rem', maxHeight: '80vh', revealOnPreset: true },
-    render: () => <WiredPane part="terminal" />
-  },
+  // Terminal pane is registered dynamically so its sizing hints (fixed width
+  // for side docking, fixed height for bottom docking) track the user's
+  // Terminal position preference. See registerTerminalPane below.
+
   {
     id: 'files',
     area: 'panes',
@@ -315,34 +422,6 @@ registry.registerMany([
 // zones collapse to nothing while their pane is hidden (no target / ⌘G off).
 // This static spot is just the seed — dockPaneBeside keeps preview adjacent
 // to files WHEREVER files moves (see the target listeners below).
-const DEFAULT_TREE = split(
-  'row',
-  [
-    group(['sessions'], { id: 'grp-sessions' }),
-    group(['workspace'], { id: 'grp-main' }),
-    split(
-      'column',
-      [
-        split(
-          'row',
-          [
-            group(['review'], { id: 'grp-review' }),
-            group(['preview'], { id: 'grp-preview' }),
-            group(['files'], { id: 'grp-files' })
-          ],
-          [1, 1, 1.2],
-          'spl-rail'
-        ),
-        group(['terminal'], { id: 'grp-terminal' })
-      ],
-      [1.6, 1],
-      'spl-right'
-    )
-  ],
-  [1, 3.4, 1.25],
-  'spl-root'
-)
-
 const FOCUS_TREE = split(
   'row',
   [group(['sessions']), group(['workspace', 'files', 'preview', 'review', 'terminal'])],
@@ -374,7 +453,24 @@ registry.registerMany([
   { id: 'quad', area: 'layouts', title: 'Quad', order: 30, data: QUAD_TREE }
 ])
 
+registerTerminalPane(initialTerminalPosition)
 declareDefaultTree(DEFAULT_TREE)
+
+// Keep the layout in sync with the Terminal position preference. We preserve
+// whether the terminal was open so changing the position doesn't surprise-open
+// a hidden terminal.
+$terminalPosition.listen(position => {
+  const wasOpen = $terminalTakeover.get()
+  const tree = buildDefaultTree(position)
+
+  registerTerminalPane(position)
+  registry.register({ id: 'default', area: 'layouts', title: 'Default', order: 0, data: tree })
+  applyTree(tree, 'default')
+
+  if (!wasOpen) {
+    setTerminalTakeover(false)
+  }
+})
 
 // Bundled plugins load AFTER core, so a same-id contribution from a plugin
 // deliberately overrides the core default (last writer wins). Third-party

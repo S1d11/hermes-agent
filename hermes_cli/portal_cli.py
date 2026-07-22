@@ -28,7 +28,7 @@ from hermes_cli.config import load_config
 
 DEFAULT_PORTAL_URL = "https://portal.nousresearch.com"
 SUBSCRIPTION_URL = "https://portal.nousresearch.com/manage-subscription"
-DOCS_URL = "https://github.com/S1d11/zeus"
+DOCS_URL = "https://github.com/S1d11/hermes-agent"
 
 
 def _cmd_status(args) -> int:

@@ -302,6 +302,7 @@ export interface DesktopUpdateStatus {
   updateAvailable?: boolean
   branch?: string
   currentBranch?: string
+  targetRemote?: string
   reason?: string
   message?: string
   error?: string

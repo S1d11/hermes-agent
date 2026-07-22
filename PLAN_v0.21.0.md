@@ -137,7 +137,7 @@ Five parallel investigations were conducted across the codebase:
   - Line 5: `# Hermes Agent ☤` → `# Hermes`
   - Line 7: All "Hermes Agent" / "Hermes Desktop" links → "Hermes" / "Hermes Desktop"
   - Line 10: Badge text `hermes-agent.nousresearch.com` → update if domain is changing
-  - Line 12: GitHub URL `NousResearch/hermes-agent` → `S1d11/zeus`
+  - Line 12: GitHub URL `NousResearch/hermes-agent` → `S1d11/hermes-agent`
   - Line 19: "built by Nous Research" → keep or change per your preference
   - Line 21: `hermes model` → keep CLI command name (backward compat) OR rename
   - All `hermes` CLI command references → decide: keep as `hermes` for backward compat or rename to `hermes`
@@ -399,7 +399,7 @@ After a deeper search, I found **22 additional user-facing places** where the ap
   - `"HTTP-Referer": "https://hermes-agent.nousresearch.com"`
   - `"X-Title": "Hermes Agent"`
 - **Fix:**
-  - `"HTTP-Referer": "https://github.com/S1d11/zeus"` (or your new URL)
+  - `"HTTP-Referer": "https://github.com/S1d11/hermes-agent"` (or your new URL)
   - `"X-Title": "Hermes"`
 - **Why:** Shows in OpenRouter dashboard as the app name making requests
 
@@ -480,7 +480,7 @@ After a deeper search, I found **22 additional user-facing places** where the ap
 - **Steps:**
   1. Bump version to `0.21.0`
   2. Run `npm run dist:win:nsis` to build the NSIS installer
-  3. Create GitHub release `v0.21.0` in `S1d11/zeus` repo
+  3. Create GitHub release `v0.21.0` in `S1d11/hermes-agent` repo
   4. Upload `Hermes-0.21.0-win-x64.exe`, `latest.yml`, and `.blockmap` as release assets
   5. Write release notes covering all fixes
 

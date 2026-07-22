@@ -5038,7 +5038,7 @@ def interactive_setup() -> None:
     print_info("   3. Install to Workspace: Settings → Install App")
     print_info("   4. After installing, invite the bot to channels: /invite @YourBot")
     print()
-    print_info("   Full guide: https://github.com/S1d11/zeus")
+    print_info("   Full guide: https://github.com/S1d11/hermes-agent")
     print()
 
     # Generate and write manifest up-front so the user can paste it into

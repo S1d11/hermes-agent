@@ -16,7 +16,7 @@ interface ReleaseInfo {
   assets: Array<{ name: string; browser_download_url: string; size: number }>
 }
 
-const RELEASES_API = 'https://api.github.com/repos/S1d11/zeus/releases'
+const RELEASES_API = 'https://api.github.com/repos/S1d11/hermes-agent/releases'
 const CACHE_KEY = 'hermes:changelog-cache'
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -297,10 +297,10 @@ export function ChangelogDialog() {
                 variant="text"
               >
                 <a
-                  href="https://github.com/S1d11/zeus/releases"
+                  href="https://github.com/S1d11/hermes-agent/releases"
                   onClick={e => {
                     e.preventDefault()
-                    void window.hermesDesktop?.openExternal?.('https://github.com/S1d11/zeus/releases')
+                    void window.hermesDesktop?.openExternal?.('https://github.com/S1d11/hermes-agent/releases')
                   }}
                   rel="noreferrer"
                   target="_blank"
@@ -382,10 +382,10 @@ export function ChangelogDialog() {
             variant="text"
           >
             <a
-              href="https://github.com/S1d11/zeus/releases"
+              href="https://github.com/S1d11/hermes-agent/releases"
               onClick={e => {
                 e.preventDefault()
-                void window.hermesDesktop?.openExternal?.('https://github.com/S1d11/zeus/releases')
+                void window.hermesDesktop?.openExternal?.('https://github.com/S1d11/hermes-agent/releases')
               }}
               rel="noreferrer"
               target="_blank"
