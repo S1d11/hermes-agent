@@ -13,7 +13,6 @@ import {
   resolveDesktopCommand
 } from '@/lib/desktop-slash-commands'
 import { setSessionYolo } from '@/lib/yolo-session'
-import { openCommandPalettePage } from '@/store/command-palette'
 import { setComposerDraft } from '@/store/composer'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, $newChatProfile, ensureGatewayProfile, normalizeProfileKey } from '@/store/profile'

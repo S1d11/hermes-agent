@@ -27,13 +27,7 @@ import { COMPOSER_AREAS, runComposerMiddleware } from './contrib'
 import { ComposerControls } from './controls'
 import { COMPOSER_DROP_ACTIVE_CLASS, COMPOSER_DROP_FADE_CLASS } from './drop-affordance'
 import {
-  type ComposerInsertMode,
-  focusComposerInput,
-  markActiveComposer,
-  onComposerFocusRequest,
-  onComposerInsertRefsRequest,
-  onComposerInsertRequest,
-  onComposerSubmitRequest
+  markActiveComposer
 } from './focus'
 import { HelpHint } from './help-hint'
 import { useAtCompletions } from './hooks/use-at-completions'

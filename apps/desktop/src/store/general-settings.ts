@@ -44,9 +44,12 @@ const DEFAULT_PREFS: GeneralPrefs = {
 
 function readPrefs(): GeneralPrefs {
   const raw = storedString(STORAGE_KEY)
-  if (!raw) return DEFAULT_PREFS
+
+  if (!raw) {return DEFAULT_PREFS}
+
   try {
     const parsed = JSON.parse(raw) as Partial<GeneralPrefs>
+
     return {
       autoLaunchOnStartup: parsed.autoLaunchOnStartup ?? DEFAULT_PREFS.autoLaunchOnStartup,
       closeToTray: parsed.closeToTray ?? DEFAULT_PREFS.closeToTray,
@@ -74,7 +77,9 @@ function writePrefs(next: GeneralPrefs) {
 // Sync a single preference to the main process via IPC.
 async function syncToMain(key: string, value: boolean) {
   const desktop = window.hermesDesktop as any
-  if (!desktop?.hermes?.setGeneralPref) return
+
+  if (!desktop?.hermes?.setGeneralPref) {return}
+
   try {
     await desktop.hermes.setGeneralPref(key, value)
   } catch {
@@ -97,6 +102,7 @@ export function setWakeWordEnabled(enabled: boolean) {
   $wakeWordListening.set(enabled)
   // Also toggle the actual wake word listener via IPC
   const desktop = window.hermesDesktop as any
+
   if (desktop?.hermes?.toggleWakeWord) {
     void desktop.hermes.toggleWakeWord()
   }
@@ -106,14 +112,19 @@ export function setWakeWordEnabled(enabled: boolean) {
  *  Only starts — never stops. Safe to call on every boot. */
 export async function autoStartWakeWord() {
   const prefs = $generalPrefs.get()
-  if (!prefs.wakeWordEnabled) return
+
+  if (!prefs.wakeWordEnabled) {return}
   const desktop = window.hermesDesktop as any
-  if (!desktop?.hermes?.getWakeWordStatus || !desktop?.hermes?.toggleWakeWord) return
+
+  if (!desktop?.hermes?.getWakeWordStatus || !desktop?.hermes?.toggleWakeWord) {return}
+
   try {
     const status = await desktop.hermes.getWakeWordStatus()
+
     if (!status.listening) {
       await desktop.hermes.toggleWakeWord()
     }
+
     $wakeWordListening.set(true)
   } catch {
     // Best-effort — don't block boot

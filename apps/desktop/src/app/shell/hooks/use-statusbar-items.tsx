@@ -14,6 +14,7 @@ import type { RuntimeReadinessResult } from '@/lib/runtime-readiness'
 import { contextBarLabel, LiveDuration, usageContextLabel } from '@/lib/statusbar'
 import { cn } from '@/lib/utils'
 import { copyFilePath, revealFile } from '@/store/file-actions'
+import { $wakeWordListening } from '@/store/general-settings'
 import { revealFileInTree } from '@/store/layout'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
@@ -31,7 +32,6 @@ import {
 import { $focusedRuntimeId, $focusedSessionState, $focusedStoredSessionId } from '@/store/session-states'
 import { $subagentsBySession, activeSubagentCount, failedSubagentCount } from '@/store/subagents'
 import { $gatewayRestarting } from '@/store/system-actions'
-import { $wakeWordListening } from '@/store/general-settings'
 import {
   $backendUpdateApply,
   $backendUpdateStatus,
@@ -230,6 +230,7 @@ export function useStatusbarItems({
           // irrelevant. Instead, open the changelog dialog so the user can
           // see what version they're on and what's new in recent releases.
           setChangelogOpen(true)
+
           return
         }
 

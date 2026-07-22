@@ -135,19 +135,24 @@ function validateCronField(field: string, idx: number): boolean {
   for (const part of field.split(',')) {
     const stepMatch = part.match(/\/(\d+)$/)
     const step = stepMatch ? Number(stepMatch[1]) : 1
-    if (step < 1) return false
+
+    if (step < 1) {return false}
 
     const rangePart = stepMatch ? part.replace(/\/\d+$/, '') : part
-    if (rangePart === '*') continue
+
+    if (rangePart === '*') {continue}
 
     const [startStr, endStr] = rangePart.split('-')
     const start = Number(startStr)
     const end = endStr !== undefined ? Number(endStr) : start
 
-    if (!Number.isInteger(start) || !Number.isInteger(end)) return false
-    if (start < min || start > max) return false
-    if (end < min || end > max) return false
-    if (end < start) return false
+    if (!Number.isInteger(start) || !Number.isInteger(end)) {return false}
+
+    if (start < min || start > max) {return false}
+
+    if (end < min || end > max) {return false}
+
+    if (end < start) {return false}
   }
 
   return true
@@ -204,12 +209,14 @@ interface ScheduleValidation {
 
 function validateSchedule(expr: string): ScheduleValidation {
   const trimmed = expr.trim()
+
   if (!trimmed) {
     return { valid: false, description: null, error: null }
   }
 
   // Try cron expression (5 fields)
   const parts = cronParts(trimmed)
+
   if (parts) {
     for (let i = 0; i < 5; i++) {
       if (!validateCronField(parts[i], i)) {
@@ -222,10 +229,12 @@ function validateSchedule(expr: string): ScheduleValidation {
 
   // Try interval: "every Nh" / "every Nm" / "every Nd"
   const intervalMatch = trimmed.match(/^every\s+(\d+)\s*([hmd])$/i)
+
   if (intervalMatch) {
     const n = Number(intervalMatch[1])
     const unit = intervalMatch[2].toLowerCase()
     const unitName = unit === 'h' ? 'hour' : unit === 'm' ? 'minute' : 'day'
+
     return {
       valid: n > 0,
       description: `Every ${n} ${unitName}${n > 1 ? 's' : ''}`,
@@ -235,16 +244,19 @@ function validateSchedule(expr: string): ScheduleValidation {
 
   // Try natural language: "every hour", "every minute", "every day"
   const naturalMatch = trimmed.match(/^every\s+(hour|minute|day|week|month)$/i)
+
   if (naturalMatch) {
     return { valid: true, description: `Every ${naturalMatch[1].toLowerCase()}`, error: null }
   }
 
   // Try duration: "30m", "2h", "45s"
   const durationMatch = trimmed.match(/^(\d+)\s*([hms])$/i)
+
   if (durationMatch) {
     const n = Number(durationMatch[1])
     const unit = durationMatch[2].toLowerCase()
     const unitName = unit === 'h' ? 'hour' : unit === 'm' ? 'minute' : 'second'
+
     return {
       valid: n > 0,
       description: `Once after ${n} ${unitName}${n > 1 ? 's' : ''}`,
@@ -255,6 +267,7 @@ function validateSchedule(expr: string): ScheduleValidation {
   // Try ISO timestamp
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(trimmed)) {
     const date = new Date(trimmed)
+
     return {
       valid: !isNaN(date.getTime()),
       description: isNaN(date.getTime()) ? null : `Once at ${date.toLocaleString()}`,
@@ -934,6 +947,7 @@ function CronEditorDialog({
     // Validate custom schedule before submission
     if (schedulePreset === 'custom') {
       const validation = validateSchedule(trimmedSchedule)
+
       if (!validation.valid) {
         setError(validation.error || c.invalidSchedule)
 

@@ -99,20 +99,24 @@ export function GeneralSettings() {
   // Check actual wake word listener status and dependency availability on mount
   useEffect(() => {
     const desktop = window.hermesDesktop as any
-    if (!desktop?.hermes?.getWakeWordStatus) return
+
+    if (!desktop?.hermes?.getWakeWordStatus) {return}
     desktop.hermes.getWakeWordStatus().then((status: { listening: boolean }) => {
       setWakeWordListening(status.listening)
     })
+
     if (desktop.hermes.checkWakeWordDeps) {
       desktop.hermes.checkWakeWordDeps().then((deps: { available: boolean; missing: string[] }) => {
-        if (!deps.available) setWakeWordDepsMissing(deps.missing)
+        if (!deps.available) {setWakeWordDepsMissing(deps.missing)}
       })
     }
+
     // Listen for runtime errors from the wake word process
     if (desktop.hermes.onWakeWordError) {
       const unsubscribe = desktop.hermes.onWakeWordError((msg: string) => {
         setWakeWordError(msg)
       })
+
       return unsubscribe
     }
   }, [])
@@ -122,6 +126,7 @@ export function GeneralSettings() {
       // Don't enable if deps are missing — the toggle will visually stay off
       return
     }
+
     setWakeWordEnabled(on)
     setWakeWordListening(on)
   }

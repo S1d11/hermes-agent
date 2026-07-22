@@ -134,7 +134,8 @@ export function useComposerVoice({
 
   // Wake word: start voice mode without toggling it off if already active.
   const startVoiceConversation = useCallback(() => {
-    if (disabled) return
+    if (disabled) {return}
+
     if (!voiceConversationActive) {
       setVoiceConversationActive(true)
     }

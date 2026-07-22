@@ -20,12 +20,12 @@ import {
   mcpServerLogout,
   setMcpServerEnabled
 } from '@/hermes'
-import type { McpServerAuthStatus } from '@/types/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
 import { ExternalLink, LogIn, LogOut, Plug, Trash2 } from '@/lib/icons'
 import { notify, notifyError } from '@/store/notifications'
 import { runGatewayRestart } from '@/store/system-actions'
+import type { McpServerAuthStatus } from '@/types/hermes'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import { PageSearchShell } from '../page-search-shell'
@@ -372,6 +372,7 @@ function InstalledServerRow({
     if (!isOAuth) {
       return
     }
+
     let cancelled = false
     setAuthStatusLoading(true)
     setAuthStatusError(false)
@@ -388,13 +389,16 @@ function InstalledServerRow({
           setAuthStatusError(true)
         }
       })
+
     return () => void (cancelled = true)
   }, [isOAuth, server.name])
 
   const handleLogin = useCallback(async () => {
     setLoginInProgress(true)
+
     try {
       const result = await mcpServerLogin(server.name)
+
       if (result.ok) {
         notify({ kind: 'success', title: labels.oauthLoginSuccess, message: server.name })
         const status = await getMcpServerAuthStatus(server.name).catch(() => null)
@@ -411,8 +415,10 @@ function InstalledServerRow({
 
   const handleLogout = useCallback(async () => {
     setLogoutInProgress(true)
+
     try {
       const result = await mcpServerLogout(server.name)
+
       if (result.ok) {
         notify({ kind: 'success', title: labels.oauthLogoutSuccess, message: server.name })
         setAuthStatus((prev: McpServerAuthStatus | null) => prev ? { ...prev, authenticated: false } : null)
@@ -440,7 +446,7 @@ function InstalledServerRow({
               </Badge>
             )}
             {isOAuth && authStatusLoading && (
-              <Codicon name="loading" size="0.75rem" spinning className="text-(--ui-text-secondary)" />
+              <Codicon className="text-(--ui-text-secondary)" name="loading" size="0.75rem" spinning />
             )}
             {isOAuth && authStatusError && !authStatusLoading && (
               <span className="text-xs text-amber-600 dark:text-amber-400" title="Could not check auth status">
@@ -471,8 +477,8 @@ function InstalledServerRow({
                 disabled={loginInProgress || !server.enabled}
                 onClick={() => void handleLogin()}
                 size="icon"
-                variant="ghost"
                 title={labels.oauthReconnect}
+                variant="ghost"
               >
                 {loginInProgress ? (
                   <Codicon name="loading" size="0.875rem" spinning />
@@ -487,8 +493,8 @@ function InstalledServerRow({
                 disabled={loginInProgress || !server.enabled}
                 onClick={() => void handleLogin()}
                 size="icon"
-                variant="ghost"
                 title={labels.oauthConnect}
+                variant="ghost"
               >
                 {loginInProgress ? (
                   <Codicon name="loading" size="0.875rem" spinning />
@@ -504,8 +510,8 @@ function InstalledServerRow({
                 disabled={logoutInProgress}
                 onClick={() => void handleLogout()}
                 size="icon"
-                variant="ghost"
                 title={labels.oauthDisconnect}
+                variant="ghost"
               >
                 {logoutInProgress ? (
                   <Codicon name="loading" size="0.875rem" spinning />

@@ -273,11 +273,13 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     onWakeWordDetected: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('hermes:wake-word:detected', listener)
+
       return () => ipcRenderer.removeListener('hermes:wake-word:detected', listener)
     },
     onWakeWordError: callback => {
       const listener = (_event, msg) => callback(msg)
       ipcRenderer.on('hermes:wake-word:error', listener)
+
       return () => ipcRenderer.removeListener('hermes:wake-word:error', listener)
     },
     showFromTray: () => ipcRenderer.invoke('hermes:tray:show'),
@@ -289,11 +291,13 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
     onUpdateEvent: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('hermes:auto-updater:event', listener)
+
       return () => ipcRenderer.removeListener('hermes:auto-updater:event', listener)
     },
     onUpdateNotificationClicked: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('hermes:auto-updater:notification-clicked', listener)
+
       return () => ipcRenderer.removeListener('hermes:auto-updater:notification-clicked', listener)
     },
     // General settings

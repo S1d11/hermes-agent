@@ -130,12 +130,12 @@ import {
   sandboxPreflight
 } from './update-relaunch'
 import {
+  canonicalGitHubRemote,
   PRIMARY_REPO_CANONICAL,
   PRIMARY_REPO_HTTPS_URL,
+  resolveSshRemoteUrl,
   UPSTREAM_REPO_CANONICAL,
-  UPSTREAM_REPO_HTTPS_URL,
-  canonicalGitHubRemote,
-  resolveSshRemoteUrl
+  UPSTREAM_REPO_HTTPS_URL
 } from './update-remote'
 import { spawnUpdaterProcess } from './updater-process'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
@@ -2258,6 +2258,7 @@ async function probeRemoteBranch(updateRoot, remote, branch, currentSha, current
   const ancestorCheck = await runGit(['merge-base', '--is-ancestor', 'HEAD', tempRef], {
     cwd: updateRoot
   })
+
   const isAncestor = ancestorCheck.code === 0
 
   let behind = 0
@@ -2267,6 +2268,7 @@ async function probeRemoteBranch(updateRoot, remote, branch, currentSha, current
     const countStr = shouldCountCommits({ isShallow, hasMergeBase })
       ? await git(['rev-list', `HEAD..${tempRef}`, '--count'])
       : ''
+
     behind = resolveBehindCount({
       countStr,
       currentSha,
@@ -2387,6 +2389,7 @@ async function checkUpdates() {
   const originUrl = await getRemoteUrl(updateRoot, 'origin')
   const originCanonical = canonicalGitHubRemote(originUrl)
   let upstreamFallbackUrl = null
+
   if (originCanonical === PRIMARY_REPO_CANONICAL) {
     upstreamFallbackUrl = UPSTREAM_REPO_HTTPS_URL
   } else if (originCanonical === UPSTREAM_REPO_CANONICAL) {

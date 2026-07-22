@@ -5,7 +5,7 @@ import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ExternalLink, RefreshCw } from '@/lib/icons'
-import { $desktopVersion, $changelogOpen, setChangelogOpen, refreshDesktopVersion } from '@/store/updates'
+import { $changelogOpen, $desktopVersion, refreshDesktopVersion, setChangelogOpen } from '@/store/updates'
 
 interface ReleaseInfo {
   tag_name: string
@@ -28,9 +28,12 @@ interface CachedReleases {
 function loadCachedReleases(): ReleaseInfo[] | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
+
+    if (!raw) {return null}
     const cached = JSON.parse(raw) as CachedReleases
-    if (Date.now() - cached.timestamp > CACHE_TTL_MS) return null
+
+    if (Date.now() - cached.timestamp > CACHE_TTL_MS) {return null}
+
     return cached.releases
   } catch {
     return null
@@ -48,28 +51,36 @@ function saveCachedReleases(releases: ReleaseInfo[]) {
 
 async function fetchReleases(): Promise<ReleaseInfo[]> {
   const cached = loadCachedReleases()
-  if (cached) return cached
+
+  if (cached) {return cached}
 
   const resp = await fetch(`${RELEASES_API}?per_page=10`, {
     headers: { Accept: 'application/vnd.github+json' }
   })
+
   if (resp.status === 403) {
     throw new Error('GitHub API rate limit exceeded. Try again in a few minutes.')
   }
+
   if (resp.status === 404) {
     throw new Error('No releases found for this repository.')
   }
+
   if (!resp.ok) {
     throw new Error(`GitHub API returned ${resp.status}`)
   }
+
   const data = await resp.json()
   saveCachedReleases(data)
+
   return data
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  if (bytes < 1024) {return `${bytes} B`}
+
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(0)} KB`}
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
@@ -119,6 +130,7 @@ function renderMarkdown(md: string): string {
   for (const line of lines) {
     // Fenced code block
     const fenceMatch = line.match(/^```(\w*)$/)
+
     if (fenceMatch) {
       if (inCodeBlock) {
         html.push('</code></pre>')
@@ -129,10 +141,13 @@ function renderMarkdown(md: string): string {
         html.push(`<pre class="rounded-md bg-muted/40 p-3 overflow-x-auto text-xs"><code>`)
         inCodeBlock = true
       }
+
       continue
     }
+
     if (inCodeBlock) {
       html.push(line)
+
       continue
     }
 
@@ -140,21 +155,25 @@ function renderMarkdown(md: string): string {
     if (/^---+\s*$/.test(line)) {
       flushList()
       html.push('<hr class="border-border/40 my-2" />')
+
       continue
     }
 
     // Headers
     const headerMatch = line.match(/^(#{1,4})\s+(.+)$/)
+
     if (headerMatch) {
       flushList()
       const level = headerMatch[1].length
       const sizes = ['text-sm font-bold', 'text-sm font-semibold', 'text-xs font-semibold', 'text-xs font-medium']
       html.push(`<div class="${sizes[Math.min(level - 1, 3)]} mt-2 mb-1 text-foreground">${inlineFormat(headerMatch[2])}</div>`)
+
       continue
     }
 
     // Unordered list item
     const ulMatch = line.match(/^[\s]*[-*+]\s+(.+)$/)
+
     if (ulMatch) {
       if (!inList || listType !== 'ul') {
         flushList()
@@ -162,12 +181,15 @@ function renderMarkdown(md: string): string {
         inList = true
         listType = 'ul'
       }
+
       html.push(`<li>${inlineFormat(ulMatch[1])}</li>`)
+
       continue
     }
 
     // Ordered list item
     const olMatch = line.match(/^[\s]*\d+\.\s+(.+)$/)
+
     if (olMatch) {
       if (!inList || listType !== 'ol') {
         flushList()
@@ -175,7 +197,9 @@ function renderMarkdown(md: string): string {
         inList = true
         listType = 'ol'
       }
+
       html.push(`<li>${inlineFormat(olMatch[1])}</li>`)
+
       continue
     }
 
@@ -183,6 +207,7 @@ function renderMarkdown(md: string): string {
     if (line.trim() === '') {
       flushList()
       html.push('')
+
       continue
     }
 
@@ -191,8 +216,9 @@ function renderMarkdown(md: string): string {
     html.push(`<p class="my-0.5">${inlineFormat(line)}</p>`)
   }
 
-  if (inCodeBlock) html.push('</code></pre>')
+  if (inCodeBlock) {html.push('</code></pre>')}
   flushList()
+
   return html.join('\n')
 }
 
@@ -220,7 +246,7 @@ export function ChangelogDialog() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {return}
     void refreshDesktopVersion()
     setLoading(true)
     setError(null)
@@ -275,7 +301,7 @@ export function ChangelogDialog() {
           {loading && !releases ? (
             <div className="space-y-6">
               {[0, 1, 2].map(i => (
-                <div key={i} className="rounded-lg border border-border/50 bg-muted/10 p-4">
+                <div className="rounded-lg border border-border/50 bg-muted/10 p-4" key={i}>
                   <div className="mb-2 flex items-center gap-2">
                     <div className="h-4 w-24 animate-pulse rounded bg-muted/50" />
                     <div className="ml-auto h-3 w-16 animate-pulse rounded bg-muted/50" />
@@ -314,14 +340,15 @@ export function ChangelogDialog() {
             <div className="space-y-6">
               {releases.map(release => {
                 const isCurrent = currentVersion && release.tag_name === `v${currentVersion}`
+
                 return (
                   <div
-                    key={release.tag_name}
                     className={`rounded-lg border p-4 ${
                       isCurrent
                         ? 'border-primary/40 bg-primary/5'
                         : 'border-border/50 bg-muted/10'
                     }`}
+                    key={release.tag_name}
                   >
                     <div className="mb-2 flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
@@ -348,9 +375,9 @@ export function ChangelogDialog() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {release.assets.map(asset => (
                           <a
-                            key={asset.name}
                             className="inline-flex items-center gap-1 rounded-md border border-border/50 px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30"
                             href={asset.browser_download_url}
+                            key={asset.name}
                             onClick={e => {
                               e.preventDefault()
                               void window.hermesDesktop?.openExternal?.(asset.browser_download_url)

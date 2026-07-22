@@ -10,9 +10,10 @@
 
 import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
-import { Download, RefreshCw, X, CheckCircle2, AlertCircle, Loader2 } from '@/lib/icons'
+import { AlertCircle, CheckCircle2, Download, Loader2, RefreshCw, X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -47,7 +48,8 @@ export function AutoUpdateToast() {
   // Listen to auto-updater events from the main process
   useEffect(() => {
     const desktop = window.hermesDesktop as any
-    if (!desktop?.hermes) return
+
+    if (!desktop?.hermes) {return}
 
     // Subscribe to update events
     const unsubEvents = desktop.hermes.onUpdateEvent((event: any) => {
@@ -55,23 +57,34 @@ export function AutoUpdateToast() {
         case 'checking-for-update':
           setAutoUpdateInfo({ state: 'checking' })
           setDismissed(false)
+
           break
+
         case 'update-available':
           setAutoUpdateInfo({ state: 'available', version: event.data?.version, releaseNotes: event.data?.releaseNotes })
           setDismissed(false)
+
           break
+
         case 'update-not-available':
           setAutoUpdateInfo({ state: 'not-available' })
+
           break
+
         case 'download-progress':
           setAutoUpdateInfo({ state: 'downloading', downloadPercent: event.data?.percent })
+
           break
+
         case 'update-downloaded':
           setAutoUpdateInfo({ state: 'downloaded', version: event.data?.version })
           setDismissed(false)
+
           break
+
         case 'error':
           setAutoUpdateInfo({ state: 'error', errorMessage: event.data?.message })
+
           break
       }
     })
@@ -102,21 +115,24 @@ export function AutoUpdateToast() {
 
   const handleDownload = useCallback(async () => {
     const desktop = window.hermesDesktop as any
-    if (!desktop?.hermes) return
+
+    if (!desktop?.hermes) {return}
     setAutoUpdateInfo({ state: 'downloading', downloadPercent: 0 })
     await desktop.hermes.downloadUpdate()
   }, [])
 
   const handleInstall = useCallback(async () => {
     const desktop = window.hermesDesktop as any
-    if (!desktop?.hermes) return
+
+    if (!desktop?.hermes) {return}
     await desktop.hermes.installUpdate()
     // The app will quit and restart — this code won't execute
   }, [])
 
   const handleCheckNow = useCallback(async () => {
     const desktop = window.hermesDesktop as any
-    if (!desktop?.hermes) return
+
+    if (!desktop?.hermes) {return}
     setDismissed(false)
     await desktop.hermes.checkForUpdates()
   }, [])
@@ -128,20 +144,20 @@ export function AutoUpdateToast() {
 
   return (
     <div
+      aria-live="polite"
       className={cn(
         'fixed bottom-4 right-4 z-50 w-96 rounded-lg border p-4 shadow-lg',
         'bg-background text-foreground border-border',
         'animate-in fade-in slide-in-from-bottom-2 duration-300'
       )}
       role="alert"
-      aria-live="polite"
     >
       {/* Close button */}
       {update.state !== 'downloading' && (
         <button
-          onClick={() => setDismissed(true)}
-          className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label="Dismiss"
+          className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setDismissed(true)}
         >
           <X size={16} />
         </button>
@@ -151,18 +167,18 @@ export function AutoUpdateToast() {
       {update.state === 'available' && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <Download size={20} className="text-blue-500" />
+            <Download className="text-blue-500" size={20} />
             <span className="font-semibold">Update Available</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Hermes v{update.version} is ready to download. You're currently running v{update.currentVersion}.
           </p>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleDownload}>
-              <Download size={14} className="mr-1" />
+            <Button onClick={handleDownload} size="sm">
+              <Download className="mr-1" size={14} />
               Download Update
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+            <Button onClick={() => setDismissed(true)} size="sm" variant="ghost">
               Later
             </Button>
           </div>
@@ -173,7 +189,7 @@ export function AutoUpdateToast() {
       {update.state === 'downloading' && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <Loader2 size={20} className="animate-spin text-blue-500" />
+            <Loader2 className="animate-spin text-blue-500" size={20} />
             <span className="font-semibold">Downloading Update...</span>
           </div>
           <div className="h-2 w-full rounded-full bg-muted">
@@ -190,18 +206,18 @@ export function AutoUpdateToast() {
       {update.state === 'downloaded' && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={20} className="text-green-500" />
+            <CheckCircle2 className="text-green-500" size={20} />
             <span className="font-semibold">Update Ready</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Hermes v{update.version} has been downloaded. Restart to install the update.
           </p>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleInstall}>
-              <RefreshCw size={14} className="mr-1" />
+            <Button onClick={handleInstall} size="sm">
+              <RefreshCw className="mr-1" size={14} />
               Restart & Install
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+            <Button onClick={() => setDismissed(true)} size="sm" variant="ghost">
               Later
             </Button>
           </div>
@@ -212,17 +228,17 @@ export function AutoUpdateToast() {
       {update.state === 'error' && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <AlertCircle size={20} className="text-red-500" />
+            <AlertCircle className="text-red-500" size={20} />
             <span className="font-semibold">Update Check Failed</span>
           </div>
           <p className="text-sm text-muted-foreground">
             {update.errorMessage || 'An error occurred while checking for updates.'}
           </p>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleCheckNow}>
+            <Button onClick={handleCheckNow} size="sm" variant="ghost">
               Try Again
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+            <Button onClick={() => setDismissed(true)} size="sm" variant="ghost">
               Dismiss
             </Button>
           </div>

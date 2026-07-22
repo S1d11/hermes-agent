@@ -52,6 +52,7 @@ import {
 import { $filePreviewTarget, $previewTarget, closeRightRail } from '@/store/preview'
 import { $reviewOpen, closeReview, REVIEW_PANE_ID } from '@/store/review'
 import { $currentCwd, $selectedStoredSessionId, $sessions, sessionMatchesStoredId } from '@/store/session'
+import { $terminalPosition, type TerminalPosition } from '@/store/terminal-position'
 
 import type { SessionDragPayload } from '../chat/composer/inline-refs'
 import { watchRouteTiles } from '../chat/route-tile'
@@ -63,7 +64,6 @@ import {
   WorkspaceTabMenu
 } from '../chat/session-tile'
 import { $terminalTakeover, setTerminalTakeover } from '../right-sidebar/store'
-import { $terminalPosition, type TerminalPosition } from '@/store/terminal-position'
 import { $workspaceIsPage } from '../routes'
 
 import { FilesPane, LogsPane, PreviewRailPane, ReviewPaneContent } from './panes'
@@ -96,6 +96,7 @@ function terminalPaneData(position: TerminalPosition) {
         minWidth: '18rem',
         maxWidth: '30rem'
       }
+
     case 'bottom':
       return {
         ...base,
@@ -103,6 +104,7 @@ function terminalPaneData(position: TerminalPosition) {
         minHeight: '7.5rem',
         maxHeight: '80vh'
       }
+
     default: // 'auto'
       return {
         ...base,
@@ -145,6 +147,7 @@ function buildDefaultTree(position: TerminalPosition) {
         [3, 1],
         'spl-root'
       )
+
     case 'side':
       return split(
         'row',
@@ -157,6 +160,7 @@ function buildDefaultTree(position: TerminalPosition) {
         [1, 3.2, 1.2, 1],
         'spl-root'
       )
+
     default: // 'auto'
       return split(
         'row',
